@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-
 export default function SetupTournamentPage() {
   const router = useRouter();
 
@@ -11,19 +10,26 @@ export default function SetupTournamentPage() {
     name: "",
     date: "",
     budget: "",
+    role: "",
+    basePrice: "",
+    biddingPrice: "",
     minPlayers: "",
     maxPlayers: "",
     rules: "",
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   return (
     <main className="min-h-screen bg-[#070d19] text-white py-16 px-6 flex justify-center">
       <div className="max-w-3xl w-full">
-        <h1 className="text-center text-3xl font-bold">Setup Your Tournament</h1>
+        <h1 className="text-center text-3xl font-bold">
+          Setup Your Tournament
+        </h1>
         <p className="text-center text-gray-400 mt-1 mb-10">
           Define the rules and budget for your auction
         </p>
@@ -56,12 +62,52 @@ export default function SetupTournamentPage() {
               </div>
 
               <div>
-                <label className="text-sm text-gray-400">Team Budget (Purse)</label>
+                <label className="text-sm text-gray-400">
+                  Team Budget (Purse)
+                </label>
                 <input
                   name="budget"
+                  type="number"
                   value={form.budget}
                   onChange={handleChange}
                   placeholder="₹ 10000000"
+                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-400">Player Role</label>
+                <input
+                  name="role"
+                  type="string"
+                  value={form.role}
+                  onChange={handleChange}
+                  placeholder="Ex: Batshman"
+                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-400">Base Price</label>
+                <input
+                  name="base-price"
+                  type="number"
+                  value={form.basePrice}
+                  onChange={handleChange}
+                  placeholder="Ex: ₹2000"
+                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-400">Bidding Price</label>
+                <input
+                  name="bidding-price"
+                  type="number"
+                  value={form.biddingPrice}
+                  onChange={handleChange}
+                  placeholder="Ex: ₹2000"
                   className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 />
               </div>
@@ -69,9 +115,12 @@ export default function SetupTournamentPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="text-sm text-gray-400">Min Players per Team</label>
+                <label className="text-sm text-gray-400">
+                  Min Players per Team
+                </label>
                 <input
                   name="minPlayers"
+                  type="number"
                   value={form.minPlayers}
                   onChange={handleChange}
                   placeholder="11"
@@ -80,9 +129,12 @@ export default function SetupTournamentPage() {
               </div>
 
               <div>
-                <label className="text-sm text-gray-400">Max Players per Team</label>
+                <label className="text-sm text-gray-400">
+                  Max Players per Team
+                </label>
                 <input
                   name="maxPlayers"
+                  type="number"
                   value={form.maxPlayers}
                   onChange={handleChange}
                   placeholder="25"
@@ -92,7 +144,9 @@ export default function SetupTournamentPage() {
             </div>
 
             <div>
-              <label className="text-sm text-gray-400">Description / Rules</label>
+              <label className="text-sm text-gray-400">
+                Description / Rules
+              </label>
               <textarea
                 name="rules"
                 value={form.rules}

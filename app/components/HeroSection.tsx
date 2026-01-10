@@ -39,12 +39,9 @@ export default function HeroSection() {
               className="bg-yellow-400 text-black px-6 md:px-8 py-3 md:py-3.5 rounded-md font-semibold shadow hover:bg-yellow-500 transition"
               onClick={() => router.push("/signup")}
             >
-              Start Free Trial
+              Get Started
             </button>
 
-            <button className="border border-white px-6 md:px-8 py-3 md:py-3.5 rounded-md font-semibold hover:bg-white hover:text-black transition">
-              View Demo
-            </button>
           </div>
         </div>
 

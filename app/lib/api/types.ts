@@ -7,11 +7,12 @@ export type RegisterPayload = {
 export type AuthResponse = {
   user: {
     id: string;
-    name: string;
+    fullName: string;
     email: string;
   };
   accessToken: string;
-  refreshToken: string;
+  message: string;
+  status:number;
 };
 
 export type LoginPayload = {

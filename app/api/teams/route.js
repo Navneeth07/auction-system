@@ -6,13 +6,19 @@ import { verifyAuth } from "../../../lib/auth";
 export async function POST(req) {
   try {
     await connectDB();
+    console.log("Hello");
+    // VERIFY TOKEN
     const auth = verifyAuth(req);
-const { userId, role } = auth.user;
+    if (auth.error) {
+      return NextResponse.json({ message: auth.error }, { status: 401 });
+    }
+
+    const { userId, role } = auth.user;
     const body = await req.json();
 
-    const { name, owner, shortCode, createdBy } = body;
+    const { name, owner, shortCode } = body;
 
-    if (!name || !owner || !shortCode || !createdBy) {
+    if (!name || !owner || !shortCode) {
       return NextResponse.json(
         { message: "All fields are required" },
         { status: 400 }
@@ -23,14 +29,13 @@ const { userId, role } = auth.user;
       name,
       owner,
       shortCode,
-       createdBy: userId
+      createdBy: userId,
     });
 
     return NextResponse.json(
       { message: "Team created successfully", data: team },
       { status: 201 }
     );
-
   } catch (error) {
     console.log("error>>", error);
 
@@ -50,28 +55,24 @@ const { userId, role } = auth.user;
       return NextResponse.json({ message, field }, { status: 400 });
     }
 
-    return NextResponse.json(
-      { message: "Something went wrong" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
-
-export async function GET() {
+export async function GET(req) {
   try {
     await connectDB();
-
+    // VERIFY TOKEN
+    const auth = verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ message: auth.error }, { status: 401 });
+    }
     const teams = await Team.find().sort({ createdAt: -1 });
 
-    return NextResponse.json(
-      { data: teams },
-      { status: 200 }
-    );
-
+    return NextResponse.json({ data: teams }, { status: 200 });
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to fetch teams" },
+      { message: error.message },
       { status: 500 }
     );
   }

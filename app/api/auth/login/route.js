@@ -40,6 +40,7 @@ export async function POST(req) {
     const accessToken = generateAccessToken({
       userId: user._id,
       email: user.email,
+      role:user.role
     });
 
     const refreshToken = generateRefreshToken({

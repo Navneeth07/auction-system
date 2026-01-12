@@ -7,21 +7,18 @@ export async function POST(req) {
   try {
     await connectDB();
 
-    // 🔐 VERIFY TOKEN
+    // VERIFY TOKEN
     const auth = verifyAuth(req);
     if (auth.error) {
-      return NextResponse.json(
-        { message: auth.error },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: auth.error }, { status: 401 });
     }
 
-    console.log(auth)
+    console.log(auth);
 
     const { userId, role } = auth.user;
-    console.log("userId>>",role)
+    console.log("userId>>", role);
 
-    // 🛡 Role-based access
+    // Role-based access
     if (role !== "admin" && role !== "organizer") {
       return NextResponse.json(
         { message: "You are not allowed to create tournament" },
@@ -38,7 +35,7 @@ export async function POST(req) {
       biddingPrice,
       minPlayers,
       maxPlayers,
-      rules
+      rules,
     } = body;
 
     const tournament = await Tournament.create({
@@ -50,14 +47,13 @@ export async function POST(req) {
       minPlayers,
       maxPlayers,
       rules,
-      createdBy: userId // ✅ from token
+      createdBy: userId, // from token
     });
 
     return NextResponse.json(
       { message: "Tournament created", data: tournament },
       { status: 201 }
     );
-
   } catch (error) {
     console.log("error>>", error);
 
@@ -69,26 +65,31 @@ export async function POST(req) {
       );
     }
 
-    return NextResponse.json(
-      { message: "Something went wrong" },
-      { status: 500 }
-    );
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyValue)[0];
+
+      return NextResponse.json(
+        { message: `${field} already exists`, field },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
-
-export async function GET() {
+export async function GET(req) {
   try {
     await connectDB();
-
-    const tournaments = await Tournament.find()
-      .sort({ createdAt: -1 });
+    // 🔐 VERIFY TOKEN
+    const auth = verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ message: auth.error }, { status: 401 });
+    }
+    const tournaments = await Tournament.find().sort({ createdAt: -1 });
 
     return NextResponse.json({ data: tournaments }, { status: 200 });
   } catch (error) {
-    return NextResponse.json(
-      { message: "Failed to fetch tournaments" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

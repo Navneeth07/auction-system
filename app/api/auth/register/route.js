@@ -23,7 +23,7 @@ export async function POST(req) {
       fullName,
       email,
       password,
-      role: "organizer"
+      role: "organizer",
     });
     console.log("Res>>", user);
 
@@ -31,7 +31,7 @@ export async function POST(req) {
     const accessToken = generateAccessToken({
       userId: user._id,
       email: user.email,
-      role: user.role
+      role: user.role,
     });
     const refreshToken = generateRefreshToken({
       userId: user._id,
@@ -43,6 +43,7 @@ export async function POST(req) {
     const response = NextResponse.json(
       {
         message: "User registered successfully",
+        status: 201,
         accessToken,
         user: {
           id: user._id,

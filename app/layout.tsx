@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "react-hot-toast"
 import "./globals.css";
 import Header from "./components/Header";
 
@@ -25,6 +26,7 @@ export default function RootLayout({
         />
 
         {children}
+        <Toaster position="top-right" reverseOrder={false} />
       </body>
     </html>
   );

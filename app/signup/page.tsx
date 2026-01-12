@@ -41,7 +41,7 @@ export default function SignUpPage() {
 
       if (name === "fullName") {
         newErrors.fullName =
-          value.trim().length < 2
+          value.trim().length < 3
             ? "Full name must be at least 2 characters"
             : "";
       }
@@ -54,7 +54,7 @@ export default function SignUpPage() {
 
       if (name === "password") {
         newErrors.password =
-          value.length < 8 ? "Password must be at least 6 characters" : "";
+          value.length < 8 ? "Password must be at least 8 characters" : "";
       }
 
       return newErrors;
@@ -66,17 +66,6 @@ export default function SignUpPage() {
     const { fullName, email, password } = form;
     const payload = { fullName, email, password };
 
-    //error validations
-    if (formErrors.fullName || formErrors.email || formErrors.password) {
-      toast.error("Please fix the form errors");
-      return;
-    }
-
-    if (!form.fullName || !form.email || !form.password) {
-      toast.error("All fields are required");
-      return;
-    }
-
     try {
       const res = await request(payload);
       if (res?.status === 201) {
@@ -87,7 +76,7 @@ export default function SignUpPage() {
       }
     } catch (err) {
       console.log("regeistration error", err);
-      toast.error(error || "Registration failed, please try again later");
+      toast.error(error);
     }
   };
 
@@ -113,6 +102,13 @@ export default function SignUpPage() {
             value={form.fullName}
             onChange={handleChange}
           />
+          <div>
+            {formErrors?.fullName && (
+              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
+                {formErrors.fullName}
+              </span>
+            )}
+          </div>
 
           <label className="text-gray-300 text-sm">Email</label>
           <input
@@ -123,6 +119,13 @@ export default function SignUpPage() {
             value={form.email}
             onChange={handleChange}
           />
+          <div>
+            {formErrors?.email && (
+              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
+                {formErrors.email}
+              </span>
+            )}
+          </div>
 
           <label className="text-gray-300 text-sm">Password</label>
           <input
@@ -133,10 +136,23 @@ export default function SignUpPage() {
             value={form.password}
             onChange={handleChange}
           />
-
+          <div>
+            {formErrors?.password && (
+              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
+                {formErrors.password}
+              </span>
+            )}
+          </div>
           <button
-            className="w-full bg-yellow-400 hover:bg-yellow-500 transition text-black font-semibold py-3 rounded-md"
-            onClick={() => router.push("/setup-tournament")}
+            type="submit"
+            disabled={hasErrors || loading}
+            className={`w-full py-3 rounded-md font-semibold transition-all duration-200
+                ${
+                  hasErrors || loading
+                    ? "bg-yellow-400/40 text-black/50 cursor-not-allowed shadow-inner"
+                    : "bg-yellow-400 hover:bg-yellow-500 text-black hover:shadow-lg hover:-translate-y-[1px] active:translate-y-0"
+                }
+              `}
           >
             {loading ? "Creating..." : "Sign Up"}
           </button>

@@ -1,35 +1,29 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useApi } from "../hooks/useApi";
-import { registerUser } from "../lib/api/api";
+import { loginUser } from "../lib/api/api";
 import { useState } from "react";
 import Loading from "../components/Loading";
-import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [form, setForm] = useState({
-    fullName: "",
     email: "",
     password: "",
   });
   const [formErrors, setFormErrors] = useState({
-    fullName: "",
     email: "",
     password: "",
   });
   const hasErrors =
-    !!formErrors.fullName ||
     !!formErrors.email ||
     !!formErrors.password ||
-    !form.fullName ||
     !form.email ||
     !form.password;
-  const { register } = useAuthStore();
 
   //hook use
-  const { request, loading, error } = useApi(registerUser);
+  const { request, loading, error } = useApi(loginUser);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -38,13 +32,6 @@ export default function SignUpPage() {
 
     setFormErrors((prev) => {
       const newErrors = { ...prev };
-
-      if (name === "fullName") {
-        newErrors.fullName =
-          value.trim().length < 3
-            ? "Full name must be at least 2 characters"
-            : "";
-      }
 
       if (name === "email") {
         newErrors.email = !/^\S+@\S+\.\S+$/.test(value)
@@ -63,16 +50,19 @@ export default function SignUpPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { fullName, email, password } = form;
-    const payload = { fullName, email, password };
+    const { email, password } = form;
+    const payload = { email, password };
 
     try {
       const res = await request(payload);
-      if (res?.status === 201) {
-        toast.success("Account created successfully 🎉");
-        register(res?.user, res?.accessToken);
-        localStorage.setItem("token", res?.accessToken);
+      if (res?.status === 200) {
+        toast.success("Logged In successfully 🎉");
+        loginUser(res.user);
         router.push("/setup-tournament");
+        // Persist token
+        localStorage.setItem("token", res.accessToken);
+      } else {
+        toast.error("Somethin went wrong, please try again later");
       }
     } catch (err) {
       console.log("regeistration error", err);
@@ -92,23 +82,6 @@ export default function SignUpPage() {
           <p className="text-gray-400 text-sm mb-8">
             Enter your email below to create your organizer account
           </p>
-
-          <label className="text-gray-300 text-sm">Full Name</label>
-          <input
-            name="fullName"
-            type="text"
-            placeholder="John Doe"
-            className="w-full mt-1 mb-4 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.fullName}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.fullName && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.fullName}
-              </span>
-            )}
-          </div>
 
           <label className="text-gray-300 text-sm">Email</label>
           <input
@@ -154,13 +127,13 @@ export default function SignUpPage() {
                 }
               `}
           >
-            {loading ? "Creating..." : "Sign Up"}
+            {loading ? "Creating..." : "Login"}
           </button>
 
           <p className="text-center text-gray-400 text-sm mt-4">
-            Already have an account?{" "}
-            <a href="/login" className="text-yellow-400 hover:underline">
-              Login
+            Dontt have an account ?{" "}
+            <a href="/signup" className="text-yellow-400 hover:underline">
+              Sign Up
             </a>
           </p>
         </div>

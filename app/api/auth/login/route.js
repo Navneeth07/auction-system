@@ -63,6 +63,7 @@ export async function POST(req) {
           fullName: user.fullName,
           email: user.email,
         },
+        status:200
       },
       { status: 200 }
     );

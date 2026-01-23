@@ -13,7 +13,7 @@ export async function POST(req) {
       return NextResponse.json({ message: auth.error }, { status: 401 });
     }
 
-    console.log(auth);
+    console.log("auth>>");
 
     const { userId, role } = auth.user;
     console.log("userId>>", role);
@@ -26,32 +26,34 @@ export async function POST(req) {
       );
     }
 
+    console.log("req>>",req)
+
     const body = await req.json();
+
+    console.log("body>>",body)
     const {
       name,
       date,
       budget,
-      basePrice,
-      biddingPrice,
       minPlayers,
       maxPlayers,
-      rules,
+      roles,
+      rules
     } = body;
-
+console.log("roles>>",roles);
     const tournament = await Tournament.create({
       name,
       date,
       budget,
-      basePrice,
-      biddingPrice,
       minPlayers,
       maxPlayers,
+      roles,
       rules,
       createdBy: userId, // from token
     });
 
     return NextResponse.json(
-      { message: "Tournament created", data: tournament },
+      { message: "Tournament created", data: tournament , status:201},
       { status: 201 }
     );
   } catch (error) {
@@ -74,7 +76,7 @@ export async function POST(req) {
       );
     }
 
-    return NextResponse.json({ message: error.message }, { status: 500 });
+    return NextResponse.json({ message: error.message}, { status: 500 });
   }
 }
 
@@ -88,7 +90,7 @@ export async function GET(req) {
     }
     const tournaments = await Tournament.find().sort({ createdAt: -1 });
 
-    return NextResponse.json({ data: tournaments }, { status: 200 });
+    return NextResponse.json({ data: tournaments, status: 201}, { status: 200 });
   } catch (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }

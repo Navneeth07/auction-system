@@ -17,7 +17,7 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+}    
 
 body {
   background: var(--background);
@@ -34,4 +34,11 @@ input[type="number"]::-webkit-outer-spin-button {
 
 input[type="number"] {
   -moz-appearance: textfield; /* Firefox */
+}
+
+.input {
+  @apply w-full rounded-md bg-[#0f172a] border border-slate-700/60
+  px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500
+  focus:outline-none focus:border-yellow-500/70
+  focus:ring-1 focus:ring-yellow-500/40;
 }

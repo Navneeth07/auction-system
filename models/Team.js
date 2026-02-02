@@ -29,6 +29,13 @@ const TeamSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
+    tournamentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tournament",
+      required: true,
+    },
+
   },
   { timestamps: true }
 );

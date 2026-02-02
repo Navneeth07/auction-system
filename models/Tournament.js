@@ -1,5 +1,35 @@
 import mongoose from "mongoose";
 
+const RoleSchema = new mongoose.Schema(
+  {
+    role: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
+
+    basePrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    biddingPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+      validate: {
+        validator: function (value) {
+          return value <= this.basePrice;
+        },
+        message: "Bidding price must be less than or equal to base price",
+      },
+    },
+  },
+  { _id: false }, // optional (no separate _id for each role)
+);
+
 const TournamentSchema = new mongoose.Schema(
   {
     name: {
@@ -18,24 +48,6 @@ const TournamentSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
-    },
-
-    basePrice: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    biddingPrice: {
-      type: Number,
-      required: true,
-      min: 0,
-      validate: {
-        validator: function (value) {
-          return value < this.basePrice;
-        },
-        message: "Bidding price must be less than base price",
-      },
     },
 
     minPlayers: {
@@ -60,13 +72,23 @@ const TournamentSchema = new mongoose.Schema(
       trim: true,
     },
 
+    roles: {
+      type: [RoleSchema],
+      validate: {
+        validator: function (roles) {
+          return roles.length > 0;
+        },
+        message: "At least one role is required",
+      },
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.Tournament ||

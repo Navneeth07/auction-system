@@ -2,21 +2,38 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useApi } from "../hooks/useApi";
+import { createTournament } from "../lib/api/api";
+import toast from "react-hot-toast";
+import Loading from "../components/Loading";
+import { useTournamentStore } from "../store/tournamentStore";
 
 export default function SetupTournamentPage() {
   const router = useRouter();
+  const { request, loading, error } = useApi(createTournament);
+  const [isBtnDisable, setIsBtnDisable] = useState(false);
+  const { setTournament } = useTournamentStore();
 
   const [form, setForm] = useState({
     name: "",
     date: "",
-    budget: "",
-    role: "",
-    basePrice: "",
-    biddingPrice: "",
-    minPlayers: "",
-    maxPlayers: "",
+    budget: 0,
+    basePrice: 0,
+    biddingPrice: 0,
+    minPlayers: 0,
+    maxPlayers: 0,
     rules: "",
   });
+
+  const isFormValid =
+    form.name.trim() &&
+    form.date &&
+    form.budget > 0 &&
+    form.basePrice > 0 &&
+    form.biddingPrice > 0 &&
+    form.minPlayers > 0 &&
+    form.maxPlayers > 0 &&
+    form.rules.trim();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -24,157 +41,190 @@ export default function SetupTournamentPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const handleTournament = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const {
+      name,
+      date,
+      budget,
+      basePrice,
+      biddingPrice,
+      minPlayers,
+      maxPlayers,
+      rules,
+    } = form;
+    const payload = {
+      name,
+      date,
+      budget,
+      basePrice,
+      biddingPrice,
+      minPlayers,
+      maxPlayers,
+      rules,
+    };
+
+    try {
+      const res = await request(payload);
+      if (res?.status === 201) {
+        toast.success(res?.message);
+        setTournament(res?.data);
+      }
+    } catch (err) {
+      console.log("regeistration error", err);
+      toast.error(error);
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-[#070d19] text-white py-16 px-6 flex justify-center">
-      <div className="max-w-3xl w-full">
-        <h1 className="text-center text-3xl font-bold">
-          Setup Your Tournament
-        </h1>
-        <p className="text-center text-gray-400 mt-1 mb-10">
-          Define the rules and budget for your auction
-        </p>
+    <form onSubmit={handleTournament}>
+      <main className="min-h-screen bg-[#070d19] text-white py-16 px-6 flex justify-center">
+        {loading && <Loading />}
+        <div className="max-w-3xl w-full">
+          <h1 className="text-center text-3xl font-bold">
+            Setup Your Tournament
+          </h1>
+          <p className="text-center text-gray-400 mt-1 mb-10">
+            Define the rules and budget for your auction
+          </p>
 
-        <div className="bg-[#0e1729] border border-gray-700 rounded-xl p-8 shadow-lg">
-          <h2 className="text-lg font-semibold mb-6">Tournament Details</h2>
+          <div className="bg-[#0e1729] border border-gray-700 rounded-xl p-8 shadow-lg">
+            <h2 className="text-lg font-semibold mb-6">Tournament Details</h2>
 
-          <div className="space-y-5">
-            <div>
-              <label className="text-sm text-gray-400">Tournament Name</label>
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                placeholder="e.g. Premier League 2025"
-                className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-5">
               <div>
-                <label className="text-sm text-gray-400">Auction Date</label>
+                <label className="text-sm text-gray-400">Tournament Name</label>
                 <input
-                  type="date"
-                  name="date"
-                  value={form.date}
+                  name="name"
+                  value={form.name}
                   onChange={handleChange}
+                  placeholder="e.g. Premier League 2025"
                   className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-sm text-gray-400">Auction Date</label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={form.date}
+                    onChange={handleChange}
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">
+                    Team Budget (Purse)
+                  </label>
+                  <input
+                    name="budget"
+                    type="number"
+                    value={form.budget}
+                    onChange={handleChange}
+                    placeholder="₹ 10000000"
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Base Price</label>
+                  <input
+                    name="basePrice"
+                    type="number"
+                    value={form.basePrice}
+                    onChange={handleChange}
+                    placeholder="11"
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">Bidding Price</label>
+                  <input
+                    name="biddingPrice"
+                    type="number"
+                    value={form.biddingPrice}
+                    onChange={handleChange}
+                    placeholder="Ex: ₹2000"
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-sm text-gray-400">
+                    Min Players per Team
+                  </label>
+                  <input
+                    name="minPlayers"
+                    type="number"
+                    value={form.minPlayers}
+                    onChange={handleChange}
+                    placeholder="11"
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-gray-400">
+                    Max Players per Team
+                  </label>
+                  <input
+                    name="maxPlayers"
+                    type="number"
+                    value={form.maxPlayers}
+                    onChange={handleChange}
+                    placeholder="25"
+                    className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                  />
+                </div>
               </div>
 
               <div>
                 <label className="text-sm text-gray-400">
-                  Team Budget (Purse)
+                  Description / Rules
                 </label>
-                <input
-                  name="budget"
-                  type="number"
-                  value={form.budget}
+                <textarea
+                  name="rules"
+                  value={form.rules}
                   onChange={handleChange}
-                  placeholder="₹ 10000000"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-400">Player Role</label>
-                <input
-                  name="role"
-                  type="string"
-                  value={form.role}
-                  onChange={handleChange}
-                  placeholder="Ex: Batshman"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                  
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-400">Base Price</label>
-                <input
-                  name="base-price"
-                  type="number"
-                  value={form.basePrice}
-                  onChange={handleChange}
-                  placeholder="Ex: ₹2000"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-400">Bidding Price</label>
-                <input
-                  name="bidding-price"
-                  type="number"
-                  value={form.biddingPrice}
-                  onChange={handleChange}
-                  placeholder="Ex: ₹2000"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
+                  placeholder="Any specific rules for the auction..."
+                  rows={4}
+                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500"
+                ></textarea>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="text-sm text-gray-400">
-                  Min Players per Team
-                </label>
-                <input
-                  name="minPlayers"
-                  type="number"
-                  value={form.minPlayers}
-                  onChange={handleChange}
-                  placeholder="11"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
+            <div className="flex justify-between mt-8">
+              <button
+                onClick={() => router.back()}
+                className="px-6 py-2 rounded bg-gray-600 hover:bg-gray-500 transition"
+              >
+                Back
+              </button>
 
-              <div>
-                <label className="text-sm text-gray-400">
-                  Max Players per Team
-                </label>
-                <input
-                  name="maxPlayers"
-                  type="number"
-                  value={form.maxPlayers}
-                  onChange={handleChange}
-                  placeholder="25"
-                  className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded focus:outline-none focus:ring-1 focus:ring-yellow-500"
-                />
-              </div>
+              <button
+                type="submit"
+                disabled={!isFormValid || loading}
+                className={`px-6 py-2 rounded font-semibold transition
+                  ${
+                    !isFormValid || loading
+                      ? "bg-yellow-500/40 text-black/40 cursor-not-allowed"
+                      : "bg-yellow-500 hover:bg-yellow-400 text-black"
+                  }
+                `}
+              >
+                {loading ? "Saving..." : "Next: Add Teams"}
+              </button>
             </div>
-
-            <div>
-              <label className="text-sm text-gray-400">
-                Description / Rules
-              </label>
-              <textarea
-                name="rules"
-                value={form.rules}
-                onChange={handleChange}
-                placeholder="Any specific rules for the auction..."
-                rows={4}
-                className="w-full mt-1 bg-[#111b2e] border border-gray-600 px-4 py-3 rounded resize-none focus:outline-none focus:ring-1 focus:ring-yellow-500"
-              ></textarea>
-            </div>
-          </div>
-
-          <div className="flex justify-between mt-8">
-            <button
-              onClick={() => router.back()}
-              className="px-6 py-2 rounded bg-gray-600 hover:bg-gray-500 transition"
-            >
-              Back
-            </button>
-
-            <button
-              onClick={() => router.push("/teams")}
-              className="px-6 py-2 bg-yellow-500 text-black font-semibold rounded hover:bg-yellow-400 transition"
-            >
-              Next: Add Teams
-            </button>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </form>
   );
 }

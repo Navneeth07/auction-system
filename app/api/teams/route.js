@@ -33,7 +33,7 @@ export async function POST(req) {
     });
 
     return NextResponse.json(
-      { message: "Team created successfully", data: team },
+      { message: "Team created successfully", data: team, status:201 },
       { status: 201 }
     );
   } catch (error) {

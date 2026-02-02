@@ -1,17 +1,19 @@
-import { create } from "zustand";
+import { create } from "zustand"
 
 type User = {
-  id: string;
-  fullName: string;
-  email: string;
-};
+  id: string
+  fullName: string
+  email: string
+}
 
 type AuthStore = {
-  user: User | null;
-  accessToken: string | null;
-  register: (user: User, token: string) => void;
-  logout: () => void;
-};
+  user: User | null
+  accessToken: string | null
+
+  register: (user: User, token: string) => void
+  login: (user: User, token: string) => void
+  logout: () => void
+}
 
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
@@ -23,9 +25,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
       accessToken: token,
     }),
 
+  login: (user, token) =>
+    set({
+      user,
+      accessToken: token,
+    }),
+
   logout: () =>
     set({
       user: null,
       accessToken: null,
     }),
-}));
+}))

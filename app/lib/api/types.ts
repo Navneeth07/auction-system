@@ -33,27 +33,57 @@ export type LoginResponse = {
   status:number;
 };
 
+export type RolePricing = {
+  role: string;
+  basePrice: number;
+  biddingPrice: number;
+};
+
 export type TournamentPayload = {
-  name:string,
-  date:string,
-  budget:number,
-  biddingPrice:number,
-  minPlayers:number,
-  maxPlayers:number,
-  rules:string
-}
+  name: string;
+  date: string;
+  budget: number;
+  minPlayers: number;
+  maxPlayers: number;
+  rules: string;
+  roles: RolePricing[];
+};
 
 export type TournamentResponse = {
+  message: string;
+  data: {
+    name: string;
+    date: string;
+    budget: number;
+    minPlayers: number;
+    maxPlayers: number;
+    rules: string;
+    roles: RolePricing[];
+  };
+  status: number;
+};
+
+export type Team = {
+  name: string;
+  owner: string;
+  shortCode: string;
+};
+
+export type TeamResponse = {
   message:string,
+  status:number,
   data:{
     name:string,
-    date:string,
-    budget:number,
-    basePrice:number,
-    biddingPrice:number,
-    minPlayers:number,
-    maxPlayers:number,
-    rules:string,
+    owner:string,
+    shortCode:string
   }
-  status:number
 }
+
+export type Player = {
+  id: string;
+  name: string;
+  role: string;
+  basePrice: number;
+};
+
+

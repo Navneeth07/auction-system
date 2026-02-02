@@ -4,7 +4,8 @@ const API = {
   LOGIN: "/auth/login",
   LOGOUT: "/auth/logout",
   REFRESH: "/auth/refresh",
-  TOURNAMENT:"/tournaments"
+  TOURNAMENT:"/tournaments",
+  REGISTER_TEAMS:'/teams'
 }
 
 export default API

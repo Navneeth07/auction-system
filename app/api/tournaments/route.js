@@ -83,15 +83,57 @@ console.log("roles>>",roles);
 export async function GET(req) {
   try {
     await connectDB();
+
     // 🔐 VERIFY TOKEN
     const auth = verifyAuth(req);
     if (auth.error) {
-      return NextResponse.json({ message: auth.error }, { status: 401 });
+      return NextResponse.json(
+        { message: auth.error },
+        { status: 401 }
+      );
     }
-    const tournaments = await Tournament.find().sort({ createdAt: -1 });
 
-    return NextResponse.json({ data: tournaments, status: 201}, { status: 200 });
+    const { userId } = auth.user;
+    const { searchParams } = new URL(req.url);
+
+    // 📄 PAGINATION
+    const page = parseInt(searchParams.get("page")) || 1;
+    const limit = parseInt(searchParams.get("limit")) || 10;
+    const skip = (page - 1) * limit;
+
+    // 🎯 FILTER (USER-BASED)
+    const filter = {
+      createdBy: userId
+    };
+
+    // 📦 FETCH DATA
+    const [tournaments, total] = await Promise.all([
+      Tournament.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+
+      Tournament.countDocuments(filter),
+    ]);
+
+    return NextResponse.json(
+      {
+        data: tournaments,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    return NextResponse.json({ message: error.message }, { status: 500 });
+    console.log("Tournament pagination error:", error);
+
+    return NextResponse.json(
+      { message: error.message },
+      { status: 500 }
+    );
   }
-}    
+}   

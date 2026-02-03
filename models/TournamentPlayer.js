@@ -18,14 +18,7 @@ const TournamentPlayerSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    // Performance data for this specific tournament
-    score: {
-      type: Number,
-      default: 0,
-    },
-    rank: {
-      type: Number,
-    },
+   
     status: {
       type: String,
       enum: ["registered", "active", "disqualified", "completed"],
@@ -35,11 +28,6 @@ const TournamentPlayerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-/**
- * BRD Logic Implementation:
- * A player can only be registered once per tournament.
- * This compound index prevents duplicate entries.
- */
 TournamentPlayerSchema.index({ tournamentId: 1, playerId: 1 }, { unique: true });
 
 /**

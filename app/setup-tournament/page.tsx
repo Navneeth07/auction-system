@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { createTournament } from "../lib/api/api";
+import { createTournament, getTournaments, getTournamentById } from "../lib/api/api";
 import { useApi } from "../hooks/useApi";
 import { useTournamentStore } from "../store/tournamentStore";
 import { useRoleStore } from "../store/roleStore";
@@ -12,8 +12,78 @@ import Loading from "../components/Loading";
 export default function SetupTournamentPage() {
   const router = useRouter();
   const { request, loading, error } = useApi(createTournament);
+  const { data: listData, request: fetchTournaments, loading: listLoading } = useApi(getTournaments);
   const { setTournament } = useTournamentStore();
-  const { roles, addRole, updateRole, removeRole } = useRoleStore();
+  const { roles, addRole, updateRole, removeRole, setRoles } = useRoleStore();
+
+  const { request: fetchTournamentById, loading: fetchingTournament } = useApi(getTournamentById);
+
+  // Fetch tournaments and restore selected tournament (if exists) or fallback to list
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Always fetch list for UI
+        await fetchTournaments();
+
+        const savedId = localStorage.getItem("selectedTournamentId");
+        if (savedId) {
+          try {
+            const res = await fetchTournamentById(savedId);
+            const t = (res as any).data;
+            if (t) {
+              setTournament(t);
+              setRoles(t.roles || []);
+              setForm({
+                name: t.name || "",
+                date: t.date ? new Date(t.date).toISOString().slice(0, 10) : "",
+                budget: String(t.budget || ""),
+                minPlayers: String(t.minPlayers || ""),
+                maxPlayers: String(t.maxPlayers || ""),
+                rules: t.rules || "",
+              });
+              setSelectedId(t._id || null);
+            }
+          } catch (e) {
+            // cleared invalid selection
+            localStorage.removeItem("selectedTournamentId");
+          }
+        } else {
+          // do not auto select when none saved
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const handleSelectTournament = async (id: string) => {
+    try {
+      const res = await fetchTournamentById(id);
+      const t = (res as any).data;
+      if (t) {
+        setTournament(t);
+        setRoles(t.roles || []);
+        setForm({
+          name: t.name || "",
+          date: t.date ? new Date(t.date).toISOString().slice(0, 10) : "",
+          budget: String(t.budget || ""),
+          minPlayers: String(t.minPlayers || ""),
+          maxPlayers: String(t.maxPlayers || ""),
+          rules: t.rules || "",
+        });
+        setSelectedId(t._id || null);
+        localStorage.setItem("selectedTournamentId", t._id || "");
+        toast.success("Tournament loaded into form");
+      }
+    } catch (e) {
+      toast.error("Failed to load tournament");
+    }
+  };
 
   const [form, setForm] = useState({
     name: "",
@@ -55,6 +125,11 @@ export default function SetupTournamentPage() {
     try {
       const res = await request(payload);
       setTournament(res.data);
+      // persist selection immediately so user can continue to add teams
+      if (res?.data?._id) {
+        localStorage.setItem("selectedTournamentId", res.data._id);
+        setSelectedId(res.data._id);
+      }
       toast.success("Tournament created 🏏");
       router.push('/register-teams')
     } catch {
@@ -71,6 +146,29 @@ export default function SetupTournamentPage() {
           Setup Your Tournament
         </h1>
 
+        {listData && (listData as any).data && (listData as any).data.length > 0 && (
+          <div className="max-w-7xl mx-auto mb-6">
+            <h3 className="text-lg font-semibold">Tournaments</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+              {(listData as any).data.map((t: any) => (
+                <div
+                  key={t._id}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") handleSelectTournament(t._id);
+                  }}
+                  onClick={() => handleSelectTournament(t._id)}
+                  className={`cursor-pointer bg-[#071022] p-3 rounded border truncate focus:outline-none transition-colors
+                    ${selectedId === t._id ? "border-yellow-400 ring-2 ring-yellow-400" : "border-gray-700 hover:border-gray-500 hover:bg-[#0b1630]"}`}
+                >
+                  <p className="text-sm font-medium text-white">{t.name}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Tournament */}
           <section className="bg-[#0e1729] p-8 rounded-xl border border-gray-700">
@@ -79,6 +177,7 @@ export default function SetupTournamentPage() {
             <Input
               label="Tournament Name"
               name="name"
+              value={form.name}
               onChange={handleChange}
               placeholder="Indian Premier League"
             />
@@ -86,12 +185,14 @@ export default function SetupTournamentPage() {
               label="Auction Date"
               type="date"
               name="date"
+              value={form.date}
               onChange={handleChange}
               placeholder="select the date"
             />
             <Input
               label="Per Team Budget"
               name="budget"
+              value={form.budget}
               onChange={handleChange}
               placeholder="₹50000"
             />
@@ -99,17 +200,19 @@ export default function SetupTournamentPage() {
               <Input
                 label="Min Players"
                 name="minPlayers"
+                value={form.minPlayers}
                 onChange={handleChange}
                 placeholder="9"
               />
               <Input
                 label="Max Players"
                 name="maxPlayers"
+                value={form.maxPlayers}
                 onChange={handleChange}
                 placeholder="10"
               />
             </div>
-            <Textarea label="Rules" name="rules" onChange={handleChange} />
+            <Textarea label="Rules" name="rules" value={form.rules} onChange={handleChange} />
           </section>
 
           {/* Roles */}

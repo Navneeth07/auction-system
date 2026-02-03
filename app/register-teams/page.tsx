@@ -1,16 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Team } from "../lib/api/types";
-// import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { useApi } from "../hooks/useApi";
-import { registerteams } from "../lib/api/api";
+import { registerteams, getTeams } from "../lib/api/api";
 import toast from "react-hot-toast";
 import Loading from "../components/Loading";
+import { useTournamentStore } from "../store/tournamentStore";
 
 export default function RegisterTeamsPage() {
-  // const router = useRouter();
+  const router = useRouter();
   const { request, loading, error } = useApi(registerteams);
+  const { tournament } = useTournamentStore();
+  const { request: fetchTeamsRequest, loading: fetchingTeams } = useApi(getTeams);
+
+  useEffect(() => {
+    if (!tournament) {
+      toast.error("No tournament found. Please create a tournament first.");
+      router.push("/setup-tournament");
+      return;
+    }
+
+    // load existing teams for this tournament
+    fetchTeamsRequest(tournament._id)
+      .then((res) => setTeams(res?.data ? res.data : []))
+      .catch((e) => console.warn("Failed to load teams", e));
+  }, [tournament, router, fetchTeamsRequest]);
 
   const [teams, setTeams] = useState<Team[]>([]);
 
@@ -22,9 +38,15 @@ export default function RegisterTeamsPage() {
 
   const handleAddTeam = async () => {
     if (!form.name || !form.owner || !form.shortCode) return;
+    if (!tournament?._id) {
+      toast.error("Tournament id missing. Go back and create a tournament.");
+      router.push("/setup-tournament");
+      return;
+    }
+
     const { name, owner, shortCode } = form;
     try {
-      const res = await request({ name, owner, shortCode });
+      const res = await request({ name, owner, shortCode, tournamentId: tournament._id });
       setTeams((prev) => [...prev, res?.data]);
       setForm({ name: "", owner: "", shortCode: "" });
     } catch (err) {
@@ -146,13 +168,30 @@ export default function RegisterTeamsPage() {
           </div>
 
           <div className="flex justify-between items-center mt-12">
-            <button className="px-6 py-2 rounded-lg bg-gray-200 text-black">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="px-6 py-2 rounded-lg bg-gray-200 text-black"
+            >
               Back
             </button>
 
-            <button 
-            disabled={!form.name || !form.owner || !form.shortCode}
-            className="px-6 py-2 rounded-lg bg-yellow-500 text-black font-medium hover:bg-yellow-400">
+            <button
+              type="button"
+              onClick={() => {
+                if (teams.length === 0) {
+                  toast.error("Please add at least one team before proceeding.");
+                  return;
+                }
+                router.push("/player-pools");
+              }}
+              disabled={teams.length === 0}
+              className={`px-6 py-2 rounded-lg font-medium ${
+                teams.length === 0
+                  ? "bg-gray-600 text-black cursor-not-allowed"
+                  : "bg-yellow-500 text-black hover:bg-yellow-400"
+              }`}
+            >
               Next: Add Players
             </button>
           </div>

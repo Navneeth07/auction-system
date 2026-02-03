@@ -24,12 +24,11 @@ export type LoginPayload = {
 export type LoginResponse = {
   user: {
     id: string;
-    name: string;
+    fullName: string;
     email: string;
-    password:string
   };
   accessToken: string;
-  refreshToken: string;
+  message?: string;
   status:number;
 };
 
@@ -37,6 +36,11 @@ export type RolePricing = {
   role: string;
   basePrice: number;
   biddingPrice: number;
+};
+
+export type RolesDropdownResponse = {
+  roles: RolePricing[];
+  status: number;
 };
 
 export type TournamentPayload = {
@@ -63,10 +67,51 @@ export type TournamentResponse = {
   status: number;
 };
 
+export type TournamentsResponse = {
+  data: Array<{
+    _id: string;
+    name: string;
+    date: string;
+    budget: number;
+    minPlayers: number;
+    maxPlayers: number;
+    rules: string;
+    roles: RolePricing[];
+    createdBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+};
+
+export type SingleTournamentResponse = {
+  data: {
+    _id: string;
+    name: string;
+    date: string;
+    budget: number;
+    minPlayers: number;
+    maxPlayers: number;
+    rules: string;
+    roles: RolePricing[];
+    createdBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
+  };
+};
+
 export type Team = {
+  id?: string;
   name: string;
   owner: string;
   shortCode: string;
+  tournamentId?: string;
+  purse?: number;
 };
 
 export type TeamResponse = {
@@ -75,7 +120,8 @@ export type TeamResponse = {
   data:{
     name:string,
     owner:string,
-    shortCode:string
+    shortCode:string,
+    tournamentId?: string
   }
 }
 
@@ -84,6 +130,17 @@ export type Player = {
   name: string;
   role: string;
   basePrice: number;
+  biddingPrice: number;
+};
+
+export type PlayersResponse = {
+  data: Player[];
+  status?: number;
+};
+
+export type PlayerResponse = {
+  data: Player;
+  status?: number;
 };
 
 

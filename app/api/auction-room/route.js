@@ -5,12 +5,96 @@ import Tournament from "@/models/Tournament";
 import TournamentPlayer from "@/models/TournamentPlayer";
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
+import BidHistory from "@/models/BidHistory";
+
+
+export async function POST(req) {
+  try {
+    await connectDB();
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    const auth = verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ message: auth.error }, { status: 401 });
+    }
+
+    const { userId } = auth.user;
+
+    const { tournamentPlayerId, teamId, bidAmount } = await req.json();
+
+    const player = await TournamentPlayer.findOne({
+      _id: tournamentPlayerId,
+      createdBy: userId,
+    }).session(session);
+
+    if (!player) {
+      throw new Error("Player not found");
+    }
+if (player.status === "sold") {
+  throw new Error("This player is already sold. Bidding is not allowed.");
+}
+    const team = await Team.findOne({
+      _id: teamId,
+      createdBy: userId,
+    }).session(session);
+
+    if (!team) {
+      throw new Error("Team not found");
+    }
+
+    if (team.remainingPurse < bidAmount) {
+      throw new Error("Team does not have enough purse");
+    }
+
+    if (bidAmount <= player.biddingPrice) {
+      throw new Error("Bid must be higher than current price");
+    }
+
+    // 🔥 FAST DIRECT UPDATES
+
+    await TournamentPlayer.updateOne(
+      { _id: tournamentPlayerId },
+      { $set: { biddingPrice: bidAmount } },
+      { session }
+    );
+
+    await Team.updateOne(
+      { _id: teamId },
+      { $inc: { remainingPurse: -bidAmount } },
+      { session }
+    );
+
+    await BidHistory.create(
+      [
+        {
+          tournamentId: player.tournamentId,
+          tournamentPlayerId,
+          teamId,
+          bidAmount,
+          createdBy: userId,
+        },
+      ],
+      { session }
+    );
+
+    await session.commitTransaction();
+
+    return NextResponse.json({
+      message: "Bid placed successfully",
+    });
+  } catch (error) {
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}
+
+
 
 export async function GET(req) {
   try {
     await connectDB();
 
-    // AUTH CHECK
     const auth = verifyAuth(req);
     if (auth.error) {
       return NextResponse.json({ message: auth.error }, { status: 401 });
@@ -19,7 +103,12 @@ export async function GET(req) {
     const { userId } = auth.user;
 
     const { searchParams } = new URL(req.url);
+
     const tournamentId = searchParams.get("tournamentId");
+
+    // 🔥 NEW FILTERS
+    const selectedRole = searchParams.get("role");
+    const playerId = searchParams.get("playerId");
 
     if (!tournamentId) {
       return NextResponse.json(
@@ -28,7 +117,7 @@ export async function GET(req) {
       );
     }
 
-    // 1️⃣ Get Tournament Details
+    // 1️⃣ Tournament Details
     const tournament = await Tournament.findOne({
       _id: tournamentId,
       createdBy: userId,
@@ -41,16 +130,15 @@ export async function GET(req) {
       );
     }
 
-    // 2️⃣ Get All Tournament Players
+    // 2️⃣ Fetch Players
     const tournamentPlayers = await TournamentPlayer.find({
       tournamentId,
       createdBy: userId,
     }).populate("playerId");
 
-    // 3️⃣ Build Role Wise Player Structure
+    // 3️⃣ Build Roles Structure
     const roles = {};
 
-    // Initialize roles from tournament config
     tournament.roles.forEach((r) => {
       roles[r.role] = {
         basePrice: r.basePrice,
@@ -83,13 +171,24 @@ export async function GET(req) {
       roles[tp.role].players.push(playerData);
     });
 
-    // 4️⃣ Get Team List
+    // 🔥 ROLE FILTER LOGIC
+
+    let filteredRoles = roles;
+
+    if (selectedRole) {
+      filteredRoles = {};
+
+      if (roles[selectedRole]) {
+        filteredRoles[selectedRole] = roles[selectedRole];
+      }
+    }
+
+    // 4️⃣ Team List
     const teams = await Team.find({
       tournamentId,
       createdBy: userId,
     }).select("-createdBy -__v");
 
-    // 5️⃣ Build Team Response with Purse
     const teamList = teams.map((team) => ({
       id: team._id,
       name: team.name,
@@ -99,11 +198,15 @@ export async function GET(req) {
       remainingPurse: team.remainingPurse,
     }));
 
-    // 6️⃣ Determine First Active Player
+    // 5️⃣ Active Player Logic
     let activePlayer = null;
 
-    for (let roleName of Object.keys(roles)) {
-      const pending = roles[roleName].players.find(
+    const roleKeys = selectedRole
+      ? [selectedRole]
+      : Object.keys(filteredRoles);
+
+    for (let roleName of roleKeys) {
+      const pending = filteredRoles[roleName]?.players.find(
         (p) => p.status === "registered"
       );
 
@@ -111,6 +214,21 @@ export async function GET(req) {
         activePlayer = pending;
         break;
       }
+    }
+
+    // 6️⃣ Bidding History
+    let biddingHistory = [];
+
+    const historyPlayerId = playerId || activePlayer?.id;
+
+    if (historyPlayerId) {
+      biddingHistory = await BidHistory.find({
+        tournamentId,
+        tournamentPlayerId: historyPlayerId,
+        createdBy: userId,
+      })
+        .populate("teamId", "name shortCode")
+        .sort({ createdAt: -1 });
     }
 
     return NextResponse.json({
@@ -123,11 +241,13 @@ export async function GET(req) {
         maxPlayers: tournament.maxPlayers,
       },
 
-      roles,        // 🔥 MAIN: ROLE → PLAYERS
-      teams: teamList, // 🔥 TEAM LIST WITH PURSE
-      activePlayer, // 🔥 FIRST PLAYER TO AUCTION
+      roles: filteredRoles,  // 🔥 NOW FILTERED
+      teams: teamList,
+      activePlayer,
+      biddingHistory,
     });
   } catch (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
+

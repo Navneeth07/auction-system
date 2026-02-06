@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Tournament from "@/models/Tournament";
 import TournamentPlayer from "@/models/TournamentPlayer";
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
 import BidHistory from "@/models/BidHistory";
-
 
 export async function POST(req) {
   try {
@@ -89,9 +87,9 @@ if (player.status === "sold") {
   }
 }
 
-
-
 export async function GET(req) {
+
+  console.log("I am here")
   try {
     await connectDB();
 
@@ -113,7 +111,7 @@ export async function GET(req) {
     if (!tournamentId) {
       return NextResponse.json(
         { message: "tournamentId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -126,7 +124,7 @@ export async function GET(req) {
     if (!tournament) {
       return NextResponse.json(
         { message: "Tournament not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -201,6 +199,7 @@ export async function GET(req) {
     // 5️⃣ Active Player Logic
     let activePlayer = null;
 
+
     const roleKeys = selectedRole
       ? [selectedRole]
       : Object.keys(filteredRoles);
@@ -208,6 +207,7 @@ export async function GET(req) {
     for (let roleName of roleKeys) {
       const pending = filteredRoles[roleName]?.players.find(
         (p) => p.status === "registered"
+
       );
 
       if (pending) {
@@ -241,12 +241,15 @@ export async function GET(req) {
         maxPlayers: tournament.maxPlayers,
       },
 
+
       roles: filteredRoles,  // 🔥 NOW FILTERED
       teams: teamList,
       activePlayer,
       biddingHistory,
+
     });
   } catch (error) {
+    console.log("error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

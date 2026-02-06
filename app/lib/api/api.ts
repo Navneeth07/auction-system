@@ -15,14 +15,12 @@ import {
   AuctionRoomResponse,
 } from "./types";
 
-/* ---------- AUTH ---------- */
 export const registerUser = (data: RegisterPayload) =>
   api.post<AuthResponse>(API.REGISTER, data);
 
 export const loginUser = (data: LoginPayload) =>
   api.post<LoginResponse>(API.LOGIN, data);
 
-/* ---------- TOURNAMENT ---------- */
 export const createTournament = (data: TournamentPayload) =>
   api.post("/tournaments", data);
 
@@ -85,3 +83,10 @@ export const postAuctionBid = (payload: {
 }) => {
   return api.post(`/auction-room`, payload);
 };
+
+export const hammerDownPlayer = (payload: { tournamentPlayerId: string }) => {
+  return api.post("/hammer-down", payload);
+};
+
+export const deleteTeam = (teamId: string) => 
+  api.delete(`/teams/${teamId}`);

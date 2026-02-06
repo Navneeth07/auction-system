@@ -6,6 +6,7 @@ import { useState } from "react";
 import Loading from "../components/Loading";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
+import { User, Mail, Lock, Loader2, ChevronRight } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -28,35 +29,29 @@ export default function SignUpPage() {
     !form.password;
   const { register } = useAuthStore();
 
-  //hook use
   const { request, loading, error } = useApi(registerUser);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
     setForm({ ...form, [name]: value });
 
     setFormErrors((prev) => {
       const newErrors = { ...prev };
-
       if (name === "fullName") {
         newErrors.fullName =
           value.trim().length < 3
-            ? "Full name must be at least 2 characters"
+            ? "Full name must be at least 3 characters"
             : "";
       }
-
       if (name === "email") {
         newErrors.email = !/^\S+@\S+\.\S+$/.test(value)
           ? "Enter a valid email address"
           : "";
       }
-
       if (name === "password") {
         newErrors.password =
           value.length < 8 ? "Password must be at least 8 characters" : "";
       }
-
       return newErrors;
     });
   };
@@ -75,96 +70,138 @@ export default function SignUpPage() {
         router.push("/setup-tournament");
       }
     } catch (err) {
-      console.log("regeistration error", err);
-      toast.error(error);
+      toast.error(error || "Registration failed");
     }
   };
 
   return (
-    <form onSubmit={handleSignup}>
+    <main className="h-screen bg-[#020408] text-white flex overflow-hidden font-sans relative">
       {loading && <Loading />}
-      <section className="min-h-screen w-full bg-[#060d1b] flex items-center justify-center px-4">
-        <div className="bg-[#0f1b30] w-full max-w-md rounded-xl shadow-xl p-8">
-          <h2 className="text-2xl font-semibold text-white mb-6">
-            Create an account
-          </h2>
 
-          <p className="text-gray-400 text-sm mb-8">
-            Enter your email below to create your organizer account
-          </p>
+      <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] bg-amber-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-yellow-500/5 rounded-full blur-[120px] pointer-events-none" />
 
-          <label className="text-gray-300 text-sm">Full Name</label>
-          <input
-            name="fullName"
-            type="text"
-            placeholder="John Doe"
-            className="w-full mt-1 mb-4 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.fullName}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.fullName && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.fullName}
-              </span>
-            )}
-          </div>
+      <section className="hidden lg:flex flex-1 flex-col justify-center px-20 relative z-10 border-r border-white/5 bg-white/[0.01]">
+        <div className="bg-amber-600/20 border border-amber-600/40 text-amber-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.3em] w-fit mb-8 shadow-2xl">
+          Organizer Portal
+        </div>
+        <h1 className="text-7xl font-black italic tracking-tighter uppercase leading-[0.85] mb-6">
+          Start Your <br />
+          <span className="text-amber-500">Legacy</span> <span className="text-white/20 font-light italic">2026</span>
+        </h1>
+        <p className="text-white/40 max-w-md text-lg font-medium leading-relaxed italic">
+          Join the most advanced cricket auction platform. Create your account to manage franchises, players, and live bidding sessions.
+        </p>
+      </section>
 
-          <label className="text-gray-300 text-sm">Email</label>
-          <input
-            name="email"
-            type="email"
-            placeholder="m@example.com"
-            className="w-full mt-1 mb-4 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.email}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.email && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.email}
-              </span>
-            )}
-          </div>
+      <section className="flex-[0.8] flex flex-col justify-center items-center px-6 relative z-20 backdrop-blur-3xl">
+        <form onSubmit={handleSignup} className="w-full max-w-md">
+          <header className="mb-10 text-center lg:text-left">
+            <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-3">
+              Create <span className="text-amber-500">Account</span>
+            </h2>
+            <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.2em]">
+              Enter details to initialize organizer credentials
+            </p>
+          </header>
 
-          <label className="text-gray-300 text-sm">Password</label>
-          <input
-            name="password"
-            type="password"
-            placeholder="••••••••"
-            className="w-full mt-1 mb-6 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.password}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.password && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.password}
-              </span>
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={hasErrors || loading}
-            className={`w-full py-3 rounded-md font-semibold transition-all duration-200
-                ${
-                  hasErrors || loading
-                    ? "bg-yellow-400/40 text-black/50 cursor-not-allowed shadow-inner"
-                    : "bg-yellow-400 hover:bg-yellow-500 text-black hover:shadow-lg hover:-translate-y-px-active:translate-y-0"
+          <div className="space-y-6">
+            <div className="group">
+              <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] block mb-3 ml-1 italic group-focus-within:text-amber-500 transition-colors">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-amber-500 transition-colors" size={18} />
+                <input
+                  name="fullName"
+                  type="text"
+                  placeholder="e.g. John Wick"
+                  className="w-full bg-white/[0.04] pl-14 pr-6 py-4 rounded-2xl border border-white/10 text-sm font-bold text-white placeholder:text-white/10 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all"
+                  value={form.fullName}
+                  onChange={handleChange}
+                />
+              </div>
+              {formErrors.fullName && (
+                <span className="mt-2 inline-block text-[10px] font-black uppercase text-red-500 italic tracking-widest ml-1 animate-in fade-in slide-in-from-left-2">
+                  {formErrors.fullName}
+                </span>
+              )}
+            </div>
+
+            <div className="group">
+              <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] block mb-3 ml-1 italic group-focus-within:text-amber-500 transition-colors">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-amber-500 transition-colors" size={18} />
+                <input
+                  name="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  className="w-full bg-white/[0.04] pl-14 pr-6 py-4 rounded-2xl border border-white/10 text-sm font-bold text-white placeholder:text-white/10 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all"
+                  value={form.email}
+                  onChange={handleChange}
+                />
+              </div>
+              {formErrors.email && (
+                <span className="mt-2 inline-block text-[10px] font-black uppercase text-red-500 italic tracking-widest ml-1 animate-in fade-in slide-in-from-left-2">
+                  {formErrors.email}
+                </span>
+              )}
+            </div>
+
+            <div className="group">
+              <label className="text-[10px] font-black text-white/80 uppercase tracking-[0.2em] block mb-3 ml-1 italic group-focus-within:text-amber-500 transition-colors">
+                Security Key
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-amber-500 transition-colors" size={18} />
+                <input
+                  name="password"
+                  type="password"
+                  placeholder="••••••••••••"
+                  className="w-full bg-white/[0.04] pl-14 pr-6 py-4 rounded-2xl border border-white/10 text-sm font-bold text-white placeholder:text-white/10 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all"
+                  value={form.password}
+                  onChange={handleChange}
+                />
+              </div>
+              {formErrors.password && (
+                <span className="mt-2 inline-block text-[10px] font-black uppercase text-red-500 italic tracking-widest ml-1 animate-in fade-in slide-in-from-left-2">
+                  {formErrors.password}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={hasErrors || loading}
+              className={`cursor-pointer w-full py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all active:scale-[0.98] flex items-center justify-center gap-3 shadow-2xl mt-4
+                ${hasErrors || loading
+                  ? "bg-white/5 text-white/20 border border-white/5 cursor-not-allowed"
+                  : "bg-gradient-to-r from-amber-600 to-amber-400 text-white shadow-amber-900/40 hover:brightness-110"
                 }
               `}
-          >
-            {loading ? "Creating..." : "Sign Up"}
-          </button>
+            >
+              {loading ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : (
+                <>
+                  Establish Access <ChevronRight size={18} />
+                </>
+              )}
+            </button>
+          </div>
 
-          <p className="text-center text-gray-400 text-sm mt-4">
-            Already have an account?{" "}
-            <a href="/login" className="text-yellow-400 hover:underline">
-              Login
-            </a>
-          </p>
-        </div>
+          <footer className="text-center mt-10">
+            <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em]">
+              Already authenticated?{" "}
+              <a href="/login" className="text-amber-500 hover:text-amber-400 transition-colors underline underline-offset-4 decoration-amber-500/20 cursor-pointer">
+                Login here
+              </a>
+            </p>
+          </footer>
+        </form>
       </section>
-    </form>
+    </main>
   );
 }

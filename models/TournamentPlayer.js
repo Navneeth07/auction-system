@@ -1,5 +1,3 @@
-import mongoose from "mongoose";
-
 const TournamentPlayerSchema = new mongoose.Schema(
   {
     tournamentId: {
@@ -12,13 +10,30 @@ const TournamentPlayerSchema = new mongoose.Schema(
       ref: "Player",
       required: true,
     },
-    // Adding createdBy/OrganizerId here ensures quick filtering for BRD Requirement #2
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-   
+
+    // 🔥 NEW FIELD – ROLE ASSIGNMENT
+    role: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    basePrice: {
+      type: Number,
+      required: true,
+    },
+
+    biddingPrice: {
+      type: Number,
+      required: true,
+    },
+
     status: {
       type: String,
       enum: ["registered", "active", "disqualified", "completed"],
@@ -28,12 +43,11 @@ const TournamentPlayerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-TournamentPlayerSchema.index({ tournamentId: 1, playerId: 1 }, { unique: true });
+// Unique per tournament
+TournamentPlayerSchema.index(
+  { tournamentId: 1, playerId: 1 },
+  { unique: true }
+);
 
-/**
- * Performance Index:
- * Helps the Organizer quickly fetch "Past history" for their specific players.
- */
-TournamentPlayerSchema.index({ createdBy: 1, playerId: 1 });
-
-export default mongoose.models.TournamentPlayer || mongoose.model("TournamentPlayer", TournamentPlayerSchema);
+export default mongoose.models.TournamentPlayer ||
+  mongoose.model("TournamentPlayer", TournamentPlayerSchema);

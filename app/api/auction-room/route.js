@@ -87,6 +87,8 @@ if (player.status === "sold") {
   }
 }
 
+
+
 export async function GET(req) {
 
   console.log("I am here")
@@ -199,7 +201,6 @@ export async function GET(req) {
     // 5️⃣ Active Player Logic
     let activePlayer = null;
 
-
     const roleKeys = selectedRole
       ? [selectedRole]
       : Object.keys(filteredRoles);
@@ -207,7 +208,6 @@ export async function GET(req) {
     for (let roleName of roleKeys) {
       const pending = filteredRoles[roleName]?.players.find(
         (p) => p.status === "registered"
-
       );
 
       if (pending) {
@@ -241,12 +241,10 @@ export async function GET(req) {
         maxPlayers: tournament.maxPlayers,
       },
 
-
       roles: filteredRoles,  // 🔥 NOW FILTERED
       teams: teamList,
       activePlayer,
       biddingHistory,
-
     });
   } catch (error) {
     console.log("error>>", error);

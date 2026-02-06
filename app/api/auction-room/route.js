@@ -5,6 +5,7 @@ import TournamentPlayer from "@/models/TournamentPlayer";
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
 import BidHistory from "@/models/BidHistory";
+import mongoose from "mongoose";
 
 export async function POST(req) {
   try {
@@ -83,6 +84,7 @@ export async function POST(req) {
       message: "Bid placed successfully",
     });
   } catch (error) {
+    console.log("Error>>",error)
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

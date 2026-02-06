@@ -5,6 +5,9 @@ import TournamentPlayer from "@/models/TournamentPlayer";
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
 import BidHistory from "@/models/BidHistory";
+import "@/models/Player";
+import mongoose from "mongoose";
+
 
 export async function POST(req) {
   try {
@@ -46,22 +49,22 @@ export async function POST(req) {
       throw new Error("Team does not have enough purse");
     }
 
-    if (bidAmount <= player.biddingPrice) {
-      throw new Error("Bid must be higher than current price");
-    }
+    // if (bidAmount == player.biddingPrice) {
+    //   throw new Error("Bid must be higher than current price");
+    // }
 
     // 🔥 FAST DIRECT UPDATES
 
     await TournamentPlayer.updateOne(
       { _id: tournamentPlayerId },
       { $set: { biddingPrice: bidAmount } },
-      { session }
+      { session },
     );
 
     await Team.updateOne(
       { _id: teamId },
       { $inc: { remainingPurse: -bidAmount } },
-      { session }
+      { session },
     );
 
     await BidHistory.create(
@@ -74,7 +77,7 @@ export async function POST(req) {
           createdBy: userId,
         },
       ],
-      { session }
+      { session },
     );
 
     await session.commitTransaction();
@@ -83,15 +86,13 @@ export async function POST(req) {
       message: "Bid placed successfully",
     });
   } catch (error) {
+    console.log("Error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
 
-
-
 export async function GET(req) {
-
-  console.log("I am here")
+  console.log("I am here");
   try {
     await connectDB();
 
@@ -108,7 +109,7 @@ export async function GET(req) {
 
     // 🔥 NEW FILTERS
     const selectedRole = searchParams.get("role");
-    const playerId = searchParams.get("playerId");
+    const tournamentPlayerId = searchParams.get("tournamentPlayerId");
 
     if (!tournamentId) {
       return NextResponse.json(
@@ -153,6 +154,7 @@ export async function GET(req) {
       const playerData = {
         id: player._id,
         fullName: player.fullName,
+        tournamentPlayerId: tp._id,
         image: player.image,
         phoneNumber: player.phoneNumber,
         emailId: player.emailId,
@@ -201,13 +203,11 @@ export async function GET(req) {
     // 5️⃣ Active Player Logic
     let activePlayer = null;
 
-    const roleKeys = selectedRole
-      ? [selectedRole]
-      : Object.keys(filteredRoles);
+    const roleKeys = selectedRole ? [selectedRole] : Object.keys(filteredRoles);
 
     for (let roleName of roleKeys) {
       const pending = filteredRoles[roleName]?.players.find(
-        (p) => p.status === "registered"
+        (p) => p.status === "registered",
       );
 
       if (pending) {
@@ -219,7 +219,7 @@ export async function GET(req) {
     // 6️⃣ Bidding History
     let biddingHistory = [];
 
-    const historyPlayerId = playerId || activePlayer?.id;
+    const historyPlayerId = tournamentPlayerId || activePlayer?.id;
 
     if (historyPlayerId) {
       biddingHistory = await BidHistory.find({
@@ -241,7 +241,7 @@ export async function GET(req) {
         maxPlayers: tournament.maxPlayers,
       },
 
-      roles: filteredRoles,  // 🔥 NOW FILTERED
+      roles: filteredRoles, // 🔥 NOW FILTERED
       teams: teamList,
       activePlayer,
       biddingHistory,
@@ -251,4 +251,3 @@ export async function GET(req) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
-

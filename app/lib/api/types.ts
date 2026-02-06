@@ -94,3 +94,20 @@ export type PlayerResponse = {
     image?: string;
   };
 };
+
+export type PaginatedPlayersResponse = {
+  data: {
+    _id: string;
+    fullName: string;
+    phoneNumber: string;
+    image?: string;
+    createdAt: string;
+  }[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    roles?: Record<string, number>;
+  };
+};

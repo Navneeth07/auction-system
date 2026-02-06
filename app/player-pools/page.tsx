@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import React, { useState, useEffect, ChangeEvent, FormEvent, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Trash2,
@@ -12,7 +12,6 @@ import {
   CheckCircle2
 } from "lucide-react";
 
-// ================= API, Types, Store =================
 import {
   getRolesDropdown,
   createPlayer,
@@ -21,18 +20,20 @@ import {
 import { RolePricing } from "../lib/api/types";
 import { useTournamentStore } from "../store/tournamentStore";
 
+
 export default function PlayerPoolPage() {
   const router = useRouter();
   const { tournament } = useTournamentStore();
   const tournamentId = tournament?._id || "";
 
-  // ================= STATE =================
   const [players, setPlayers] = useState<any[]>([]);
   const [roles, setRoles] = useState<RolePricing[]>([]);
   const [roleCounts, setRoleCounts] = useState<{ [key: string]: number }>({});
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const rolesFetchedRef = useRef(false);
+
 
   // ✅ ADDED (pagination for LEFT SIDE only)
   const [page] = useState(1);
@@ -49,13 +50,21 @@ export default function PlayerPoolPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  const calculateRoleCounts = (list: any[]) => {
+    return list.reduce((acc, p) => {
+      const role = p.role?.toLowerCase();
+      if (role) acc[role] = (acc[role] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  };
+
   const fetchPaginatedPlayers = async () => {
     try {
       const res = await getPaginatedPlayers(tournamentId, page, limit);
 
       setPlayers(res.data.data || []);
       setTotalPlayers(res.data.pagination?.total || 0);
-      setRoleCounts(res.data.pagination?.roles || {});
+      setRoleCounts(calculateRoleCounts(list));
     } catch (err) {
       console.error("Failed to fetch paginated players:", err);
     }
@@ -68,17 +77,24 @@ export default function PlayerPoolPage() {
     const init = async () => {
       try {
         setIsInitialLoading(true);
-        const rolesRes = await getRolesDropdown(tournamentId);
-        if (rolesRes.data?.roles) setRoles(rolesRes.data.roles);
+
+        if (!rolesFetchedRef.current) {
+          const rolesRes = await getRolesDropdown(tournamentId);
+          if (rolesRes.data?.roles) setRoles(rolesRes.data.roles);
+          rolesFetchedRef.current = true;
+        }
+
         await fetchPaginatedPlayers();
       } finally {
         setIsInitialLoading(false);
       }
     };
 
+
+
     init();
 
-   init();
+    init();
   }, [tournamentId]);
 
   // ================= HANDLERS =================
@@ -130,7 +146,7 @@ export default function PlayerPoolPage() {
 
       await createPlayer(payload);
 
-      await fetchPaginatedPlayers(); // ✅ ADDED (refresh LEFT SIDE)
+      await fetchPaginatedPlayers();
 
       setFormData({
         fullName: "",

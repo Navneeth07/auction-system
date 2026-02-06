@@ -6,7 +6,6 @@ import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
 import BidHistory from "@/models/BidHistory";
 
-
 export async function POST(req) {
   try {
     await connectDB();

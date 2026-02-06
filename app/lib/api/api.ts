@@ -11,6 +11,7 @@ import {
   RolesDropdownResponse,
   PlayersResponse,
   PlayerResponse,
+  PaginatedPlayersResponse,
 } from "./types";
 
 /* ---------- AUTH ---------- */
@@ -64,3 +65,6 @@ export const createPlayer = (formData: FormData) =>
   api.post<PlayerResponse>("/players", formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
+export const getPaginatedPlayers = (page = 1, limit = 3) =>
+  api.get<PaginatedPlayersResponse>(`/players?page=${page}&limit=${limit}`);

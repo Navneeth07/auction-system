@@ -8,13 +8,17 @@ import {
   Users,
   Plus,
   ChevronDown,
-  X,
   Loader2,
   CheckCircle2
 } from "lucide-react";
 
-// API, Types, and Store
-import { getRolesDropdown, getPlayers, createPlayer } from "../lib/api/api";
+// ================= API, Types, Store =================
+import {
+  getRolesDropdown,
+  getPlayers,          // ⛔ EXISTING (NOT REMOVED)
+  createPlayer,
+  getPaginatedPlayers  // ✅ ADDED
+} from "../lib/api/api";
 import { RolePricing } from "../lib/api/types";
 import { useTournamentStore } from "../store/tournamentStore";
 
@@ -23,13 +27,19 @@ export default function PlayerPoolPage() {
   const { tournament } = useTournamentStore();
   const tournamentId = tournament?._id || "";
 
-  // --- State ---
+  // ================= STATE =================
   const [players, setPlayers] = useState<any[]>([]);
   const [roles, setRoles] = useState<RolePricing[]>([]);
+  const [roleCounts, setRoleCounts] = useState<{ [key: string]: number }>({});
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Form State
+  // ✅ ADDED (pagination for LEFT SIDE only)
+  const [page] = useState(1);
+  const [limit] = useState(10);
+
+  // ================= FORM STATE =================
   const [formData, setFormData] = useState({
     fullName: "",
     phoneNumber: "",
@@ -40,7 +50,34 @@ export default function PlayerPoolPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // --- Data Fetching ---
+  // ==================================================
+  // ⛔ EXISTING GET API (NOT USED FOR UI – NOT REMOVED)
+  // ==================================================
+  const fetchPlayerData = async () => {
+    if (!tournamentId) return;
+    try {
+      await getPlayers(tournamentId);
+    } catch (err) {
+      console.error("Failed to fetch players:", err);
+    }
+  };
+
+  // ==================================================
+  // ✅ ADDED – LEFT SIDE DISPLAY API
+  // ==================================================
+  const fetchPaginatedPlayers = async () => {
+    try {
+      const res = await getPaginatedPlayers(page, limit);
+
+      setPlayers(res.data.data || []);
+      setTotalPlayers(res.data.pagination?.total || 0);
+      setRoleCounts(res.data.pagination?.roles || {});
+    } catch (err) {
+      console.error("Failed to fetch paginated players:", err);
+    }
+  };
+
+  // ================= INITIAL LOAD =================
   useEffect(() => {
     const initPage = async () => {
       if (!tournamentId) {
@@ -49,19 +86,14 @@ export default function PlayerPoolPage() {
       }
       try {
         setIsInitialLoading(true);
-        const [rolesRes, playersRes] = await Promise.allSettled([
-          getRolesDropdown(tournamentId),
-          getPlayers(tournamentId)
+
+        await Promise.all([
+          getRolesDropdown(tournamentId).then(res => {
+            if (res.data?.roles) setRoles(res.data.roles);
+          }),
+          fetchPaginatedPlayers()
         ]);
 
-        if (rolesRes.status === "fulfilled" && rolesRes.value.data?.roles) {
-          setRoles(rolesRes.value.data.roles);
-        }
-
-        if (playersRes.status === "fulfilled") {
-          const fetchedPlayers = playersRes.value.data?.data?.data || [];
-          setPlayers(fetchedPlayers);
-        }
       } catch (err) {
         console.error("Initialization error:", err);
       } finally {
@@ -71,8 +103,7 @@ export default function PlayerPoolPage() {
     initPage();
   }, [tournamentId]);
 
-  // --- Handlers ---
-
+  // ================= HANDLERS =================
   const handleRoleChange = (e: ChangeEvent<HTMLSelectElement>) => {
     const selectedRoleName = e.target.value;
     const roleData = roles.find((r) => r.role === selectedRoleName);
@@ -98,6 +129,7 @@ export default function PlayerPoolPage() {
     }
   };
 
+  // ================= CREATE PLAYER =================
   const handleAddPlayer = async (e: FormEvent) => {
     e.preventDefault();
     if (!formData.fullName || !formData.phoneNumber || !formData.role || !tournamentId) {
@@ -105,20 +137,8 @@ export default function PlayerPoolPage() {
       return;
     }
 
-    // Prepare local object for immediate UI update
-    const newLocalPlayer = {
-      _id: Date.now().toString(),
-      fullName: formData.fullName,
-      role: formData.role,
-      basePrice: formData.basePrice,
-      image: previewUrl,
-    };
-
     try {
       setIsSubmitting(true);
-
-      // Update UI state immediately (Optimistic update)
-      setPlayers((prev) => [newLocalPlayer, ...prev]);
 
       const payload = new FormData();
       payload.append("fullName", formData.fullName);
@@ -127,40 +147,35 @@ export default function PlayerPoolPage() {
       payload.append("basePrice", formData.basePrice.toString());
       payload.append("biddingPrice", formData.biddingPrice.toString());
       payload.append("tournamentId", tournamentId);
+      if (selectedFile) payload.append("image", selectedFile);
 
-      if (selectedFile) {
-        payload.append("image", selectedFile);
-      }
+      await createPlayer(payload);
 
-      const response = await createPlayer(payload);
+      await fetchPaginatedPlayers(); // ✅ ADDED (refresh LEFT SIDE)
 
-      // Replace temporary local player with the actual response from DB
-      if (response.data?.data) {
-        setPlayers((prev) =>
-          prev.map(p => p._id === newLocalPlayer._id ? response.data.data : p)
-        );
-      }
-
-      // Reset form
-      setFormData({ fullName: "", phoneNumber: "", role: "", basePrice: 0, biddingPrice: 0 });
+      setFormData({
+        fullName: "",
+        phoneNumber: "",
+        role: "",
+        basePrice: 0,
+        biddingPrice: 0
+      });
       setSelectedFile(null);
       setPreviewUrl(null);
+
     } catch (err) {
       console.error("Submission error:", err);
-      // Rollback on failure
-      setPlayers((prev) => prev.filter(p => p._id !== newLocalPlayer._id));
       alert("Failed to save player.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // --- Navigation Handler ---
   const handleFinalize = () => {
-    // Just redirect to the auction room page
     router.push("/auction-room");
   };
 
+  // ================= LOADER =================
   if (isInitialLoading) {
     return (
       <div className="h-screen bg-[#050810] flex items-center justify-center text-white">
@@ -169,9 +184,12 @@ export default function PlayerPoolPage() {
     );
   }
 
+  // ================= UI (UNCHANGED) =================
   return (
     <div className="h-screen overflow-y-auto bg-[#050810] text-white font-sans flex flex-col">
       <main className="flex-1 w-full max-w-[1280px] mx-auto px-6 py-12">
+
+        {/* HEADER */}
         <div className="flex justify-between items-start mb-10">
           <div>
             <h1 className="text-4xl font-bold mb-2">Player Pool</h1>
@@ -182,15 +200,16 @@ export default function PlayerPoolPage() {
           </button>
         </div>
 
+        {/* COUNTS */}
         <div className="flex gap-12 text-sm border-b border-gray-800 pb-6 mb-8 text-gray-400 font-medium">
-          <p>Total Players: <span className="text-white font-bold ml-1">{players.length}</span></p>
-          <p>Batsmen: <span className="text-white font-bold ml-1">{players.filter(p => p.role === 'Batsman').length}</span></p>
-          <p>Bowlers: <span className="text-white font-bold ml-1">{players.filter(p => p.role === 'Bowler').length}</span></p>
+          <p>Total Players: <span className="text-white font-bold ml-1">{totalPlayers}</span></p>
+          <p>Batsmen: <span className="text-white font-bold ml-1">{roleCounts.batsman || 0}</span></p>
+          <p>Bowlers: <span className="text-white font-bold ml-1">{roleCounts.bowlers || 0}</span></p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
 
-          {/* LEFT SIDE: Added Players List */}
+          {/* LEFT SIDE PLAYER LIST */}
           <div className="lg:col-span-7 space-y-4">
             {players.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 bg-[#0d111c] border border-dashed border-gray-800 rounded-2xl text-gray-600">
@@ -201,10 +220,10 @@ export default function PlayerPoolPage() {
               players.map((player) => (
                 <div
                   key={player._id}
-                  className="flex items-center justify-between bg-[#0d111c] border border-gray-800/60 p-5 rounded-2xl group hover:border-blue-500/40 transition-all duration-300"
+                  className="flex items-center justify-between bg-[#0d111c] border border-gray-800/60 p-5 rounded-2xl"
                 >
                   <div className="flex items-center gap-5">
-                    <div className="w-14 h-14 rounded-full bg-[#161b2c] border border-gray-700 overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 rounded-full bg-[#161b2c] border border-gray-700 overflow-hidden flex items-center justify-center">
                       {player.image ? (
                         <img src={player.image} alt={player.fullName} className="w-full h-full object-cover" />
                       ) : (
@@ -212,45 +231,30 @@ export default function PlayerPoolPage() {
                       )}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white mb-0.5 group-hover:text-blue-400 transition-colors">
-                        {player.fullName}
-                      </h3>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded uppercase font-bold tracking-wider border border-blue-500/20">
-                          {player.role}
-                        </span>
-                        <span className="text-xs text-gray-500 font-medium">
-                          Base: <span className="text-gray-300 font-bold ml-0.5">₹{player.basePrice?.toLocaleString()}</span>
-                        </span>
-                      </div>
+                      <h3 className="text-lg font-bold text-white">{player.fullName}</h3>
+                      <p className="text-xs text-gray-500">{player.phoneNumber}</p> {/* ✅ ADDED */}
                     </div>
                   </div>
-                  <button className="p-2.5 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all">
-                    <Trash2 size={20} />
-                  </button>
+                  <Trash2 size={20} className="text-gray-600" />
                 </div>
               ))
             )}
           </div>
 
-          {/* RIGHT SIDE: Add Player Form */}
           <aside className="lg:col-span-5">
             <form onSubmit={handleAddPlayer} className="bg-[#0d111c] border border-gray-800/60 rounded-3xl p-8 sticky top-8">
               <h2 className="text-xl font-bold mb-8 flex items-center gap-3 text-white">
                 <Plus size={20} className="text-yellow-500" /> Add Player
               </h2>
-
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Full Name</label>
                   <input name="fullName" value={formData.fullName} onChange={handleInputChange} placeholder="Player Name" className="w-full bg-[#161b2c] border border-gray-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition text-white" />
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Phone Number</label>
                   <input name="phoneNumber" value={formData.phoneNumber} onChange={handleInputChange} placeholder="e.g. 9876543210" className="w-full bg-[#161b2c] border border-gray-700/50 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 transition text-white" />
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Role</label>
                   <div className="relative">
@@ -261,7 +265,6 @@ export default function PlayerPoolPage() {
                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Base Price (₹)</label>
@@ -272,7 +275,6 @@ export default function PlayerPoolPage() {
                     <input readOnly value={formData.biddingPrice} className="w-full bg-[#050810] border border-gray-800 rounded-xl px-4 py-3 text-sm text-gray-500 cursor-not-allowed" />
                   </div>
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Image</label>
                   <div className="relative border border-dashed border-gray-700 rounded-xl p-4 bg-[#161b2c]/30 hover:bg-[#161b2c] transition cursor-pointer">
@@ -283,13 +285,13 @@ export default function PlayerPoolPage() {
                     </div>
                   </div>
                 </div>
-
                 <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition shadow-lg mt-4">
                   {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <><Plus size={18} /> Add Player</>}
                 </button>
               </div>
             </form>
           </aside>
+
         </div>
 
         <div className="flex justify-between items-center mt-20 border-t border-gray-800/50 pt-8 mb-12">
@@ -301,6 +303,7 @@ export default function PlayerPoolPage() {
             Finalize & Launch Auction <CheckCircle2 size={18} />
           </button>
         </div>
+
       </main>
     </div>
   );

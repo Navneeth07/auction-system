@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Player from "@/models/Player";
@@ -34,7 +35,7 @@ export async function POST(req) {
     if (!fullName || !phoneNumber) {
       return NextResponse.json(
         { message: "fullName and phoneNumber are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -75,7 +76,7 @@ export async function POST(req) {
       if (!tournament) {
         return NextResponse.json(
           { message: "Tournament not found or unauthorized" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -85,7 +86,7 @@ export async function POST(req) {
       if (!roleData) {
         return NextResponse.json(
           { message: "Invalid role for this tournament" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -93,7 +94,7 @@ export async function POST(req) {
       if (Number(biddingPrice) > Number(basePrice)) {
         return NextResponse.json(
           { message: "Bidding price must be less than or equal to base price" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -117,7 +118,7 @@ export async function POST(req) {
           : "Player created successfully",
         data: player,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.log("Player POST error:", error);
@@ -128,7 +129,7 @@ export async function POST(req) {
           message: "Player with this phone number already exists",
           field: "phoneNumber",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -158,7 +159,7 @@ export async function GET(req) {
     if (!tournamentId) {
       return NextResponse.json(
         { message: "tournamentId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -224,9 +225,10 @@ export async function GET(req) {
           roles, // 🔥 Fully Dynamic Now
         },
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
+    console.log("error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

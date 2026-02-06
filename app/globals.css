@@ -42,3 +42,21 @@ input[type="number"] {
   focus:outline-none focus:border-yellow-500/70
   focus:ring-1 focus:ring-yellow-500/40;
 }
+
+/* Add this to your CSS file */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #070d19; 
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #1e293b; /* A slightly lighter navy */
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #eab308; /* Yellow-500 to match your theme on hover */
+}

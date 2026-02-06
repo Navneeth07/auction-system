@@ -30,9 +30,9 @@ export async function POST(req) {
     if (!player) {
       throw new Error("Player not found");
     }
-if (player.status === "sold") {
-  throw new Error("This player is already sold. Bidding is not allowed.");
-}
+    if (player.status === "sold") {
+      throw new Error("This player is already sold. Bidding is not allowed.");
+    }
     const team = await Team.findOne({
       _id: teamId,
       createdBy: userId,

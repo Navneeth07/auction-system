@@ -2,58 +2,44 @@
 import { useState } from "react";
 
 /* ---------------- TYPES ---------------- */
-type Player = {
-  id: string;
-  name: string;
-  role: string;
-  category: string;
-  basePrice: number;
-};
-type Team = {
-  id: string;
-  shortName: string;
-  purseLeft: number;
-  bidIncrement: number;
-};
-type SoldPlayer = {
-  player: Player;
-  team: Team;
-  amount: number;
-};
+type Player = { id: string; name: string; role: string; category: string; basePrice: number; };
+type Team = { id: string; shortName: string; purseLeft: number; bidIncrement: number; };
+type SoldPlayer = { player: Player; team: Team; amount: number; };
 
 /* ---------------- DATA ---------------- */
 const CATEGORIES = ["Marquee", "Batsmen", "Bowlers", "All-Rounders", "Wicket Keepers"];
 const PLAYERS: Player[] = [
-  { id: "1", name: "Rohit Sharma", role: "Batsman", category: "Marquee", basePrice: 20000000 },
   { id: "2", name: "Virat Kohli", role: "Batsman", category: "Marquee", basePrice: 20000000 },
   { id: "3", name: "Jasprit Bumrah", role: "Bowler", category: "Marquee", basePrice: 20000000 },
+  { id: "4", name: "Travis Head", role: "Batsman", category: "Batsmen", basePrice: 20000000 },
 ];
+
 const TEAMS: Team[] = [
   { id: "rcb", shortName: "RCB", purseLeft: 45000000, bidIncrement: 2000000 },
   { id: "csk", shortName: "CSK", purseLeft: 32000000, bidIncrement: 2000000 },
   { id: "mi", shortName: "MI", purseLeft: 51000000, bidIncrement: 5000000 },
   { id: "kkr", shortName: "KKR", purseLeft: 28000000, bidIncrement: 2000000 },
+  { id: "lsg", shortName: "LSG", purseLeft: 35000000, bidIncrement: 2000000 },
 ];
 
-/* ---------------- COMPONENT ---------------- */
 export default function AuctionRoomPage() {
   const [activeCategory, setActiveCategory] = useState("Marquee");
   const [queue, setQueue] = useState(PLAYERS);
   const [currentPlayer, setCurrentPlayer] = useState(queue[0]);
-  const [currentBid, setCurrentBid] = useState(currentPlayer.basePrice);
+  const [currentBid, setCurrentBid] = useState(currentPlayer?.basePrice ?? 0);
   const [leadingTeam, setLeadingTeam] = useState<Team | null>(null);
   const [soldPlayers, setSoldPlayers] = useState<SoldPlayer[]>([]);
 
   const handleBid = (team: Team) => {
-    const next = leadingTeam ? currentBid + team.bidIncrement : currentPlayer.basePrice;
+    const next = leadingTeam ? currentBid + team.bidIncrement : (currentPlayer?.basePrice ?? 0);
     if (team.purseLeft < next) return;
     setCurrentBid(next);
     setLeadingTeam(team);
   };
 
   const handleSell = () => {
-    if (!leadingTeam) return;
-    setSoldPlayers(s => [...s, { player: currentPlayer, team: leadingTeam, amount: currentBid }]);
+    if (!leadingTeam || !currentPlayer) return;
+    setSoldPlayers(s => [{ player: currentPlayer, team: leadingTeam, amount: currentBid }, ...s]);
     const rest = queue.slice(1);
     setQueue(rest);
     setCurrentPlayer(rest[0]);
@@ -62,193 +48,166 @@ export default function AuctionRoomPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#02040a] text-white p-8 font-sans selection:bg-purple-500/30">
-      {/* BACKGROUND ORBS FOR FUTURISTIC FEEL */}
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
+    <div className="h-screen overflow-hidden bg-[#020408] text-white p-8 font-sans flex flex-col relative">
+      {/* DIMMED AMBER GLOWS */}
+      <div className="fixed -top-24 -left-24 w-[600px] h-[600px] bg-amber-600/5 rounded-full blur-[160px] pointer-events-none" />
+      <div className="fixed -bottom-24 -right-24 w-[600px] h-[600px] bg-yellow-500/5 rounded-full blur-[160px] pointer-events-none" />
 
-      {/* HEADER */}
-      <div className="relative flex justify-between items-center mb-10 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <span className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75" />
-            <span className="relative block w-4 h-4 bg-red-500 rounded-full" />
-          </div>
-          <span className="font-black text-2xl tracking-tighter italic">NEON <span className="text-purple-500">AUCTION</span> 2026</span>
+      {/* GLASS HEADER */}
+      <div className="flex justify-between items-center mb-8 bg-white/[0.03] border border-white/10 p-5 rounded-3xl backdrop-blur-2xl shrink-0 z-50 shadow-2xl">
+        <div className="flex items-center gap-6">
+          <div className="px-4 py-1.5 bg-red-600/80 backdrop-blur-md animate-pulse rounded text-[10px] font-black tracking-[0.3em]">LIVE</div>
+          <h1 className="text-3xl font-black italic tracking-tighter uppercase">
+            Cric<span className="text-amber-500">Auction</span> <span className="text-gray-400 font-light italic">2026</span>
+          </h1>
         </div>
-        <button className="bg-white/10 hover:bg-red-500/20 border border-white/20 text-white px-8 py-3 rounded-xl font-bold transition-all uppercase tracking-widest text-sm">
-          End Session
+        <button className="bg-white/5 hover:bg-red-600 border border-white/10 px-8 py-3 rounded-2xl font-black transition-all text-xs uppercase tracking-widest">
+            End Session
         </button>
       </div>
 
-      <div className="grid grid-cols-12 gap-8 relative">
-        {/* LEFT: PLAYER QUEUE */}
-        <div className="col-span-2 space-y-4">
-          <h3 className="text-gray-500 uppercase tracking-[0.2em] text-[10px] font-bold ml-2">Category</h3>
-          <div className="flex flex-col gap-2 mb-6">
-            {CATEGORIES.map(c => (
-              <button
-                key={c}
-                onClick={() => setActiveCategory(c)}
-                className={`px-4 py-3 rounded-xl text-left text-sm font-bold transition-all border ${
-                  activeCategory === c
-                    ? "bg-purple-600 border-purple-400 shadow-[0_0_20px_rgba(168,85,247,0.4)]"
-                    : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
+      <div className="grid grid-cols-12 gap-8 flex-grow min-h-0 relative z-10">
+        
+        {/* LEFT PANEL */}
+        <div className="col-span-2 flex flex-col gap-6 min-h-0">
+          <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/10 shrink-0">
+             <p className="text-xs font-black text-amber-500/80 uppercase tracking-widest mb-4">Categories</p>
+             <div className="space-y-2">
+                {CATEGORIES.slice(0, 4).map(c => (
+                  <button key={c} onClick={() => setActiveCategory(c)} className={`w-full text-left px-4 py-3 rounded-xl text-xs font-black transition-all ${activeCategory === c ? "bg-amber-600 text-white shadow-lg shadow-amber-900/20" : "hover:bg-white/5 text-gray-400"}`}>{c}</button>
+                ))}
+             </div>
           </div>
           
-          <h3 className="text-gray-500 uppercase tracking-[0.2em] text-[10px] font-bold ml-2">Queue</h3>
-          <div className="space-y-3 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
-            {queue.map((p, i) => (
-              <div
-                key={p.id}
-                className={`p-4 rounded-2xl border transition-all ${
-                  i === 0
-                    ? "bg-gradient-to-r from-purple-600 to-blue-600 border-white/30 shadow-2xl scale-105"
-                    : "bg-white/5 border-white/5 grayscale opacity-60"
-                }`}
-              >
-                <p className="font-bold text-lg leading-none mb-1">{p.name}</p>
-                <p className="text-[10px] uppercase tracking-widest opacity-70">{p.role}</p>
-              </div>
-            ))}
+          <div className="bg-white/[0.03] backdrop-blur-xl p-6 rounded-[2.5rem] border border-white/10 flex flex-col min-h-0 flex-grow">
+            <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Upcoming</p>
+            <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2">
+              {queue.map((p, i) => (
+                <div key={p.id} className={`p-5 rounded-2xl border transition-all ${i === 0 ? "bg-amber-600/20 border-amber-500/50" : "bg-white/5 border-transparent opacity-30"}`}>
+                  <p className="font-black text-lg leading-none text-white">{p.name}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mt-2 text-amber-500/60">{p.role}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* CENTER: THE STAGE */}
-        <div className="col-span-7 space-y-8">
-          {/* LARGE PLAYER DISPLAY */}
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-blue-600 rounded-[2rem] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-            <div className="relative bg-[#0e1625] rounded-[2rem] p-8 flex gap-10 border border-white/10 items-center">
-              <div className="w-64 h-72 bg-gradient-to-t from-gray-800 to-gray-700 rounded-2xl shadow-inner border border-white/5 flex-shrink-0 relative overflow-hidden">
-                 <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
-              </div>
-              <div className="flex-1">
-                <div className="inline-block px-4 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-[0.2em] mb-4">
-                  {currentPlayer.category} Pool
+        {/* CENTER STAGE */}
+        <div className="col-span-7 flex flex-col gap-6 min-h-0">
+          {/* PLAYER INFO CARD - INTENSE GLASS */}
+          <div className="bg-gradient-to-br from-white/[0.07] to-transparent backdrop-blur-3xl rounded-[3.5rem] p-12 flex gap-12 border border-white/10 items-center shrink-0 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
+            <div className="w-60 h-72 bg-black/40 rounded-[2rem] border border-white/10 shrink-0 flex items-center justify-center shadow-inner">
+                <span className="text-white/10 font-black text-[10rem] italic">?</span>
+            </div>
+            <div className="flex-1 relative z-10">
+              <span className="px-5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[10px] font-black uppercase tracking-[0.3em]">
+                {currentPlayer?.category}
+              </span>
+              <h1 className="text-8xl font-black tracking-tighter mt-6 leading-[0.85] uppercase italic text-white drop-shadow-2xl">
+                {currentPlayer?.name.split(' ')[0]} <br/>
+                <span className="bg-gradient-to-r from-amber-400 to-yellow-200 bg-clip-text text-transparent">
+                    {currentPlayer?.name.split(' ').slice(1).join(' ')}
+                </span>
+              </h1>
+              <p className="text-2xl text-gray-400 font-medium uppercase tracking-[0.4em] mt-6 border-l-4 border-amber-500 pl-6">{currentPlayer?.role}</p>
+            </div>
+          </div>
+
+          {/* LEADING BID TOTEM - GLASS EFFECT */}
+          <div className={`transition-all duration-500 rounded-[2.5rem] p-8 flex items-center justify-between border backdrop-blur-3xl ${leadingTeam ? "bg-amber-600/10 border-amber-500/40 shadow-2xl shadow-amber-900/20" : "bg-white/[0.02] border-white/5 opacity-50"}`}>
+             <div className="flex items-center gap-8">
+                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center font-black text-3xl text-amber-500 border border-white/10 shadow-xl">
+                    {leadingTeam ? leadingTeam.shortName[0] : "!"}
                 </div>
-                <h1 className="text-7xl font-black tracking-tighter mb-2 bg-gradient-to-b from-white to-gray-400 bg-clip-text text-transparent">
-                  {currentPlayer.name.split(' ')[0]}<br/>
-                  <span className="text-purple-500">{currentPlayer.name.split(' ')[1]}</span>
-                </h1>
-                <p className="text-2xl text-gray-400 font-light tracking-widest uppercase">{currentPlayer.role}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* MAIN BID DISPLAY (PROJECTOR FOCUS) */}
-          <div className="grid grid-cols-2 gap-6">
-            <div className="bg-gradient-to-br from-[#1a2133] to-[#0e1625] rounded-[2rem] p-8 border border-white/10 shadow-2xl flex flex-col justify-center">
-               <p className="text-purple-400 text-xs font-black uppercase tracking-[0.3em] mb-2 text-center">Current Bid</p>
-               <p className="text-7xl font-black text-white text-center tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
-                <span className="text-3xl text-gray-500 mr-2">₹</span>{currentBid.toLocaleString("en-IN")}
-              </p>
-              {leadingTeam && (
-                <div className="mt-4 flex items-center justify-center gap-3 bg-white/5 py-2 rounded-full border border-white/5">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <p className="text-sm font-bold tracking-widest text-gray-300 uppercase">Leading: {leadingTeam.shortName}</p>
+                <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/60 mb-1">Current Highest Bid</p>
+                    <p className="text-4xl font-black uppercase tracking-tighter text-white italic">{leadingTeam ? leadingTeam.shortName : "Waiting..."}</p>
                 </div>
-              )}
-            </div>
-
-            <div className="bg-white/5 rounded-[2rem] p-8 border border-white/10 flex flex-col justify-center items-center">
-               <p className="text-gray-500 text-xs font-black uppercase tracking-[0.3em] mb-2">Base Price</p>
-               <p className="text-4xl font-bold text-gray-300">
-                ₹{currentPlayer.basePrice.toLocaleString("en-IN")}
-              </p>
-            </div>
+             </div>
+             <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500/60 mb-1">Live Valuation</p>
+                <p className="text-6xl font-black tabular-nums italic text-white">₹{currentBid.toLocaleString("en-IN")}</p>
+             </div>
           </div>
 
-          {/* TEAM PADS */}
-          <div className="grid grid-cols-4 gap-4">
-            {TEAMS.map(team => (
-              <button
-                key={team.id}
-                onClick={() => handleBid(team)}
-                className={`relative group overflow-hidden rounded-2xl p-6 text-left transition-all duration-300 ${
-                  leadingTeam?.id === team.id
-                    ? "bg-purple-600 ring-4 ring-purple-400/50 -translate-y-2"
-                    : "bg-white/5 hover:bg-white/10 border border-white/5"
-                }`}
-              >
-                <p className="text-3xl font-black mb-1">{team.shortName}</p>
-                <div className="h-[1px] w-full bg-white/10 my-3" />
-                <p className="text-[10px] text-gray-400 uppercase font-bold mb-1 tracking-tighter">Available Purse</p>
-                <p className="text-lg font-bold tabular-nums">₹{(team.purseLeft / 10000000).toFixed(2)} Cr</p>
-              </button>
-            ))}
+          {/* TEAM CARDS - CLEANER GLASS */}
+          <div className="grid grid-cols-5 gap-4 relative z-50">
+            {TEAMS.map(team => {
+              const isActive = leadingTeam?.id === team.id;
+              return (
+                <button
+                  key={team.id}
+                  onClick={() => handleBid(team)}
+                  type="button"
+                  className={`relative overflow-hidden p-7 rounded-[2.5rem] border-2 transition-all duration-300 transform active:scale-95 text-left group backdrop-blur-md ${
+                    isActive
+                      ? "bg-white text-black border-white shadow-[0_20px_40px_rgba(255,255,255,0.1)] -translate-y-2"
+                      : "bg-white/[0.03] border-white/5 hover:border-amber-500/40 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <div className="relative z-20">
+                    <p className="text-3xl font-black italic tracking-tighter mb-1 uppercase">{team.shortName}</p>
+                    <div className={`w-10 h-1 mb-5 transition-all ${isActive ? "bg-amber-600" : "bg-white/10 group-hover:w-full group-hover:bg-amber-500/30"}`} />
+                    <p className={`text-[10px] font-black uppercase tracking-[0.1em] opacity-50 mb-1`}>Available Purse</p>
+                    <p className={`text-2xl font-black tabular-nums`}>
+                        ₹{(team.purseLeft / 10000000).toFixed(2)}<span className="text-xs ml-1 opacity-40 font-bold uppercase tracking-tighter">Cr</span>
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* BIG ACTION BUTTONS */}
-          <div className="flex gap-6">
-            <button className="flex-1 bg-transparent hover:bg-red-600 border-2 border-red-600/50 hover:border-red-600 py-5 rounded-2xl font-black text-xl transition-all uppercase tracking-widest">
+          {/* BROADCAST ACTION BUTTONS */}
+          <div className="flex gap-6 mt-auto pb-4 shrink-0 relative z-10">
+            <button className="flex-1 flex items-center justify-center gap-4 bg-white/[0.03] border-2 border-white/5 hover:border-red-500/50 py-6 rounded-[2.5rem] font-black uppercase tracking-widest transition-all text-gray-500 hover:text-red-500 backdrop-blur-xl">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>
               Unsold
             </button>
             <button
               onClick={handleSell}
               disabled={!leadingTeam}
-              className="flex-[2] bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 py-5 rounded-2xl font-black text-xl transition-all uppercase tracking-widest shadow-[0_10px_40px_rgba(16,185,129,0.3)] disabled:opacity-20 disabled:grayscale"
+              className="flex-[2.5] flex items-center justify-center gap-5 bg-gradient-to-r from-amber-600 to-amber-500 py-6 rounded-[2.5rem] font-black text-2xl uppercase tracking-[0.3em] shadow-[0_20px_50px_rgba(217,119,6,0.2)] disabled:opacity-10 transition-all hover:brightness-110 active:scale-95 text-white"
             >
-              Hammer Down (Sell)
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10v-2H7v2zM17.85 5.2c.21-.21.21-.55 0-.76l-1.29-1.29a.54.54 0 0 0-.76 0L5.2 13.75l-1.11 4.15 4.15-1.11L17.85 5.2z"/></svg>
+              Hammer Down
             </button>
           </div>
         </div>
 
-        {/* RIGHT: HISTORY & LOGS */}
-        <div className="col-span-3 space-y-6">
-           <div className="bg-white/5 rounded-3xl p-6 border border-white/10 backdrop-blur-md">
-            <h3 className="text-gray-500 uppercase tracking-[0.2em] text-[10px] font-black mb-6">Up Next</h3>
-            <div className="space-y-6">
-              {queue.slice(1, 4).map(p => (
-                <div key={p.id} className="flex items-center gap-4 group">
-                  <div className="w-12 h-12 bg-white/5 rounded-xl border border-white/10 group-hover:border-purple-500/50 transition-colors" />
-                  <div>
-                    <p className="font-bold text-sm group-hover:text-purple-400 transition-colors">{p.name}</p>
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">{p.role}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white/5 rounded-3xl p-6 border border-white/10 backdrop-blur-md h-[400px] flex flex-col">
-            <h3 className="text-gray-500 uppercase tracking-[0.2em] text-[10px] font-black mb-6">Auction Ledger</h3>
-            <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-              {soldPlayers.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center opacity-20 italic">
-                  <p className="text-sm">Waiting for first sale...</p>
-                </div>
-              )}
+        {/* RIGHT PANEL - LEDGER */}
+        <div className="col-span-3 flex flex-col gap-6 min-h-0 relative z-10">
+           <div className="bg-white/[0.02] backdrop-blur-3xl rounded-[3rem] p-10 border border-white/10 flex flex-col min-h-0 flex-grow shadow-2xl">
+            <p className="text-xs font-black text-amber-500 uppercase tracking-[0.4em] mb-10 flex items-center gap-3 italic">
+                <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.8)]" />
+                Live Ledger
+            </p>
+            <div className="space-y-4 overflow-y-auto custom-scrollbar pr-2">
               {soldPlayers.map((s, i) => (
-                <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
+                <div key={i} className="bg-white/[0.03] p-6 rounded-3xl border border-white/5 flex justify-between items-center group hover:bg-white/[0.05] transition-all">
                   <div>
-                    <p className="font-bold text-sm">{s.player.name}</p>
-                    <p className="text-[10px] font-bold text-purple-400 uppercase tracking-widest">{s.team.shortName}</p>
+                    <p className="font-black text-xl leading-none text-white">{s.player.name}</p>
+                    <p className="text-[10px] font-black text-amber-500 uppercase mt-2 tracking-[0.2em]">{s.team.shortName}</p>
                   </div>
-                  <p className="text-sm font-black text-yellow-500">₹{(s.amount / 10000000).toFixed(2)} Cr</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-black text-white italic">₹{(s.amount / 10000000).toFixed(2)}<span className="text-xs ml-0.5 opacity-50">Cr</span></p>
+                  </div>
                 </div>
               ))}
+              {soldPlayers.length === 0 && (
+                <div className="h-full flex items-center justify-center opacity-10 font-black uppercase tracking-widest text-sm">Ledger Empty</div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.05);
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(168, 85, 247, 0.5);
-          border-radius: 10px;
-        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.2); }
       `}</style>
     </div>
   );

@@ -35,7 +35,16 @@ const TournamentPlayerSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    soldTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Team",
+      default: null,
+    },
 
+    soldAmount: {
+      type: Number,
+      default: 0,
+    },
     status: {
       type: String,
       enum: ["registered", "active", "sold", "unsold", "completed"],

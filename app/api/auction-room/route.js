@@ -23,7 +23,8 @@ export async function POST(req) {
 
     const { userId } = auth.user;
 
-    const { tournamentPlayerId, teamId, bidAmount } = await req.json();
+    // 🔥 Now we only need tournamentPlayerId and teamId
+    const { tournamentPlayerId, teamId } = await req.json();
 
     const player = await TournamentPlayer.findOne({
       _id: tournamentPlayerId,
@@ -33,9 +34,11 @@ export async function POST(req) {
     if (!player) {
       throw new Error("Player not found");
     }
+
     if (player.status === "sold") {
       throw new Error("This player is already sold. Bidding is not allowed.");
     }
+
     const team = await Team.findOne({
       _id: teamId,
       createdBy: userId,
@@ -45,51 +48,67 @@ export async function POST(req) {
       throw new Error("Team not found");
     }
 
-    if (team.remainingPurse < bidAmount) {
-      throw new Error("Team does not have enough purse");
+    // 🔥 FIXED BID INCREMENT LOGIC
+    const increment = player.biddingPrice;
+
+    if (team.remainingPurse < increment) {
+      throw new Error("Team does not have enough purse for this bid");
     }
 
-    // if (bidAmount == player.biddingPrice) {
-    //   throw new Error("Bid must be higher than current price");
-    // }
+    // 🔥 New price after bid
+    const newPrice = player.basePrice + increment;
 
-    // 🔥 FAST DIRECT UPDATES
-
+    // Update player's current price
     await TournamentPlayer.updateOne(
       { _id: tournamentPlayerId },
-      { $set: { biddingPrice: bidAmount } },
-      { session },
+      { $set: { basePrice: newPrice } },
+      { session }
     );
 
+    // Deduct from team purse
     await Team.updateOne(
       { _id: teamId },
-      { $inc: { remainingPurse: -bidAmount } },
-      { session },
+      { $inc: { remainingPurse: -increment } },
+      { session }
     );
 
-    await BidHistory.create(
+    // Save bid history
+    const history = await BidHistory.create(
       [
         {
           tournamentId: player.tournamentId,
           tournamentPlayerId,
           teamId,
-          bidAmount,
+          bidAmount: newPrice,
           createdBy: userId,
         },
       ],
-      { session },
+      { session }
     );
 
     await session.commitTransaction();
 
+    // 🔥 SEND USEFUL RESPONSE DATA
     return NextResponse.json({
       message: "Bid placed successfully",
+
+      data: {
+        tournamentPlayerId,
+        teamId,
+        previousPrice: player.basePrice,
+        increment,
+        currentPrice: newPrice,
+        remainingPurse: team.remainingPurse - increment,
+        bidHistoryId: history[0]._id,
+      },
     });
   } catch (error) {
     console.log("Error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
+
+
 
 export async function GET(req) {
   console.log("I am here");

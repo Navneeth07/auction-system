@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Tournament from "@/models/Tournament";
 import TournamentPlayer from "@/models/TournamentPlayer";
@@ -92,6 +91,8 @@ if (player.status === "sold") {
 
 
 export async function GET(req) {
+
+  console.log("I am here")
   try {
     await connectDB();
 
@@ -113,7 +114,7 @@ export async function GET(req) {
     if (!tournamentId) {
       return NextResponse.json(
         { message: "tournamentId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -126,7 +127,7 @@ export async function GET(req) {
     if (!tournament) {
       return NextResponse.json(
         { message: "Tournament not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -247,6 +248,7 @@ export async function GET(req) {
       biddingHistory,
     });
   } catch (error) {
+    console.log("error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

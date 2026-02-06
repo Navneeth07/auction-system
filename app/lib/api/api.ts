@@ -77,3 +77,11 @@ export const getAuctionRoom = (tournamentId: string) =>
   api.get<AuctionRoomResponse>(
     `/auction-room?tournamentId=${encodeURIComponent(tournamentId)}`,
   );
+
+export const postAuctionBid = (payload: {
+  tournamentPlayerId: string;
+  teamId: string;
+  bidAmount: number;
+}) => {
+  return api.post(`/auction-room`, payload);
+};

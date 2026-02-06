@@ -238,7 +238,7 @@ export async function GET(req) {
     // 6️⃣ Bidding History
     let biddingHistory = [];
 
-    const historyPlayerId = tournamentPlayerId || activePlayer?.id;
+    const historyPlayerId = tournamentPlayerId || activePlayer?.tournamentPlayerId;
 
     if (historyPlayerId) {
       biddingHistory = await BidHistory.find({

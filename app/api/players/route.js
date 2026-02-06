@@ -10,7 +10,6 @@ export async function POST(req) {
   try {
     await connectDB();
 
-    // 🔐 AUTH
     const auth = verifyAuth(req);
     if (auth.error) {
       return NextResponse.json({ message: auth.error }, { status: 401 });
@@ -18,49 +17,46 @@ export async function POST(req) {
 
     const { userId } = auth.user;
 
-    // ✅ Read multipart/form-data
     const formData = await req.formData();
 
     const fullName = formData.get("fullName");
     const phoneNumber = formData.get("phoneNumber");
     const emailId = formData.get("emailId");
     const tournamentId = formData.get("tournamentId");
-    const imageFile = formData.get("image"); // 🖼️ file
+
+    // 🔥 NEW FIELDS
+    const role = formData.get("role");
+    const basePrice = formData.get("basePrice");
+    const biddingPrice = formData.get("biddingPrice");
+
+    const imageFile = formData.get("image");
 
     if (!fullName || !phoneNumber) {
       return NextResponse.json(
         { message: "fullName and phoneNumber are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     let imageUrl = null;
-    console.log("imageFile>>", imageFile);
-    // 🖼️ Upload image if provided
+
     if (imageFile && imageFile.size > 0) {
       const bytes = await imageFile.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
       const uploadResult = await new Promise((resolve, reject) => {
         cloudinary.uploader
-          .upload_stream(
-            {
-              folder: "players",
-            },
-            (error, result) => {
-              if (error) reject(error);
-              resolve(result);
-            },
-          )
+          .upload_stream({ folder: "players" }, (error, result) => {
+            if (error) reject(error);
+            resolve(result);
+          })
           .end(buffer);
       });
-      console.log("uploadResult>>>", uploadResult);
+
       imageUrl = uploadResult.secure_url;
     }
 
-    /**
-     * STEP 1: Create Player
-     */
+    // STEP 1: Create Player
     const player = await Player.create({
       fullName,
       phoneNumber,
@@ -69,11 +65,7 @@ export async function POST(req) {
       createdBy: userId,
     });
 
-    let tournamentMapping = null;
-
-    /**
-     * STEP 2: If tournamentId → map player
-     */
+    // STEP 2: Tournament Mapping With Role
     if (tournamentId) {
       const tournament = await Tournament.findOne({
         _id: tournamentId,
@@ -83,14 +75,37 @@ export async function POST(req) {
       if (!tournament) {
         return NextResponse.json(
           { message: "Tournament not found or unauthorized" },
-          { status: 404 },
+          { status: 404 }
         );
       }
 
-      tournamentMapping = await TournamentPlayer.create({
+      // 🔥 VALIDATE ROLE EXISTS IN TOURNAMENT
+      const roleData = tournament.roles.find((r) => r.role === role);
+
+      if (!roleData) {
+        return NextResponse.json(
+          { message: "Invalid role for this tournament" },
+          { status: 400 }
+        );
+      }
+
+      // Validate pricing
+      if (Number(biddingPrice) > Number(basePrice)) {
+        return NextResponse.json(
+          { message: "Bidding price must be less than or equal to base price" },
+          { status: 400 }
+        );
+      }
+
+      await TournamentPlayer.create({
         tournamentId,
         playerId: player._id,
         createdBy: userId,
+
+        // 🔥 ROLE INFO STORED HERE
+        role,
+        basePrice,
+        biddingPrice,
         status: "registered",
       });
     }
@@ -102,19 +117,18 @@ export async function POST(req) {
           : "Player created successfully",
         data: player,
       },
-      { status: 201 },
+      { status: 201 }
     );
   } catch (error) {
     console.log("Player POST error:", error);
 
-    // Duplicate phoneNumber per organizer
     if (error.code === 11000) {
       return NextResponse.json(
         {
           message: "Player with this phone number already exists",
           field: "phoneNumber",
         },
-        { status: 409 },
+        { status: 409 }
       );
     }
 
@@ -136,37 +150,81 @@ export async function GET(req) {
 
     // Read query params
     const { searchParams } = new URL(req.url);
+
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
+    const tournamentId = searchParams.get("tournamentId");
+
+    if (!tournamentId) {
+      return NextResponse.json(
+        { message: "tournamentId is required" },
+        { status: 400 }
+      );
+    }
 
     const skip = (page - 1) * limit;
 
-    // Total players count
-    const totalPlayers = await Player.countDocuments({
+    // 1️⃣ Count total players in this tournament
+    const totalPlayers = await TournamentPlayer.countDocuments({
+      tournamentId,
       createdBy: userId,
     });
 
-    // Fetch paginated players
-    const players = await Player.find({ createdBy: userId })
+    // 2️⃣ Fetch paginated players with role info
+    const players = await TournamentPlayer.find({
+      tournamentId,
+      createdBy: userId,
+    })
+      .populate("playerId")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
+    // Format response
+    const formattedPlayers = players.map((item) => ({
+      ...item.playerId._doc,
+      role: item.role,
+      basePrice: item.basePrice,
+      biddingPrice: item.biddingPrice,
+      status: item.status,
+      mappingId: item._id,
+    }));
+
+    // 3️⃣ Dynamic Role Count Aggregation
+    const roleAggregation = await TournamentPlayer.aggregate([
+      {
+        $match: {
+          tournamentId: new mongoose.Types.ObjectId(tournamentId),
+          createdBy: new mongoose.Types.ObjectId(userId),
+        },
+      },
+      {
+        $group: {
+          _id: "$role",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Convert aggregation result to object format
+    const roles = {};
+
+    roleAggregation.forEach((r) => {
+      roles[r._id] = r.count;
+    });
+
     return NextResponse.json(
       {
-        data: players,
+        data: formattedPlayers,
         pagination: {
           total: totalPlayers,
           page,
           limit,
           totalPages: Math.ceil(totalPlayers / limit),
-          roles: {
-            batsman: 10,
-            bowlers: 10,
-          },
+          roles, // 🔥 Fully Dynamic Now
         },
       },
-      { status: 200 },
+      { status: 200 }
     );
   } catch (error) {
     return NextResponse.json({ message: error.message }, { status: 500 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Team } from "../lib/api/types";
 import { useRouter } from "next/navigation";
 import { useApi } from "../hooks/useApi";
@@ -13,7 +13,19 @@ export default function RegisterTeamsPage() {
   const router = useRouter();
   const { request, loading, error } = useApi(registerteams);
   const { tournament } = useTournamentStore();
+  const [teams, setTeams] = useState<Team[]>([]);
+
+
+  const [form, setForm] = useState<Team>({
+    name: "",
+    owner: "",
+    shortCode: "",
+  });
+
   const { request: fetchTeamsRequest, loading: fetchingTeams } = useApi(getTeams);
+
+  const teamsFetchedRef = useRef(false); // 🟢 ADDED (prevents loop)
+
 
   useEffect(() => {
     if (!tournament) {
@@ -22,19 +34,15 @@ export default function RegisterTeamsPage() {
       return;
     }
 
-    // load existing teams for this tournament
+    if (teamsFetchedRef.current) return; // 🔴 CHANGED (guard)
+
+    teamsFetchedRef.current = true; // 🔴 CHANGED
+
     fetchTeamsRequest(tournament._id)
       .then((res) => setTeams(res?.data ? res.data : []))
       .catch((e) => console.warn("Failed to load teams", e));
-  }, [tournament, router, fetchTeamsRequest]);
+  }, [tournament, router]);
 
-  const [teams, setTeams] = useState<Team[]>([]);
-
-  const [form, setForm] = useState<Team>({
-    name: "",
-    owner: "",
-    shortCode: "",
-  });
 
   const handleAddTeam = async () => {
     if (!form.name || !form.owner || !form.shortCode) return;
@@ -155,10 +163,9 @@ export default function RegisterTeamsPage() {
                   onClick={handleAddTeam}
                   disabled={!form.name || !form.owner || !form.shortCode}
                   className={`w-full mt-2 py-2 rounded-lg transition flex items-center justify-center gap-2
-                    ${
-                      !form.name || !form.owner || !form.shortCode
-                        ? "bg-gray-600 cursor-not-allowed opacity-60"
-                        : "bg-gray-700 hover:bg-gray-600"
+                    ${!form.name || !form.owner || !form.shortCode
+                      ? "bg-gray-600 cursor-not-allowed opacity-60"
+                      : "bg-gray-700 hover:bg-gray-600"
                     }`}
                 >
                   Add Team
@@ -186,11 +193,10 @@ export default function RegisterTeamsPage() {
                 router.push("/player-pools");
               }}
               disabled={teams.length === 0}
-              className={`px-6 py-2 rounded-lg font-medium ${
-                teams.length === 0
+              className={`px-6 py-2 rounded-lg font-medium ${teams.length === 0
                   ? "bg-gray-600 text-black cursor-not-allowed"
                   : "bg-yellow-500 text-black hover:bg-yellow-400"
-              }`}
+                }`}
             >
               Next: Add Players
             </button>

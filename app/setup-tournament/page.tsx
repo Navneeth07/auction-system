@@ -85,6 +85,7 @@ export default function SetupTournamentPage() {
     minPlayers: "",
     maxPlayers: "",
     rules: "",
+    totalPurse:"",
   });
 
   const handleChange = (

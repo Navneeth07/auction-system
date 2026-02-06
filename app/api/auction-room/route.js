@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import mongoose from "mongoose";
 import { connectDB } from "@/lib/db";
 import Tournament from "@/models/Tournament";
 import TournamentPlayer from "@/models/TournamentPlayer";
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
+import "@/models/Player";
 
 export async function GET(req) {
+
+  console.log("I am here")
   try {
     await connectDB();
 
@@ -24,7 +26,7 @@ export async function GET(req) {
     if (!tournamentId) {
       return NextResponse.json(
         { message: "tournamentId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -37,7 +39,7 @@ export async function GET(req) {
     if (!tournament) {
       return NextResponse.json(
         { message: "Tournament not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -104,7 +106,7 @@ export async function GET(req) {
 
     for (let roleName of Object.keys(roles)) {
       const pending = roles[roleName].players.find(
-        (p) => p.status === "registered"
+        (p) => p.status === "registered",
       );
 
       if (pending) {
@@ -123,11 +125,12 @@ export async function GET(req) {
         maxPlayers: tournament.maxPlayers,
       },
 
-      roles,        // 🔥 MAIN: ROLE → PLAYERS
+      roles, // 🔥 MAIN: ROLE → PLAYERS
       teams: teamList, // 🔥 TEAM LIST WITH PURSE
       activePlayer, // 🔥 FIRST PLAYER TO AUCTION
     });
   } catch (error) {
+    console.log("error>>", error);
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }

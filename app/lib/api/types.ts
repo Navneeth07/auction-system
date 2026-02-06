@@ -112,16 +112,15 @@ export type PaginatedPlayersResponse = {
   };
 };
 
-export type AuctionPlayer = {
+type AuctionPlayer = {
   id: string;
   fullName: string;
+  tournamentPlayerId?: string; // optional (API inconsistency)
   image?: string;
-  phoneNumber: string;
-  emailId?: string | null;
   role: string;
   basePrice: number;
   biddingPrice: number;
-  status: "registered" | "sold" | "unsold";
+  status: "registered" | "sold";
 };
 
 export type AuctionRoleGroup = {

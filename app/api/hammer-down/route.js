@@ -1,3 +1,11 @@
+import mongoose from "mongoose";
+import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/db";
+import TournamentPlayer from "@/models/TournamentPlayer";
+import BidHistory from "@/models/BidHistory";
+import { verifyAuth } from "@/lib/auth";
+
+
 export async function POST(req) {
   const session = await mongoose.startSession();
 

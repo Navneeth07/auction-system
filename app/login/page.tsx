@@ -26,28 +26,23 @@ export default function SignUpPage() {
     !form.email ||
     !form.password;
 
-  //hook use
   const { request, loading, error } = useApi(loginUser);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
     setForm({ ...form, [name]: value });
 
     setFormErrors((prev) => {
       const newErrors = { ...prev };
-
       if (name === "email") {
         newErrors.email = !/^\S+@\S+\.\S+$/.test(value)
           ? "Enter a valid email address"
           : "";
       }
-
       if (name === "password") {
         newErrors.password =
           value.length < 8 ? "Password must be at least 8 characters" : "";
       }
-
       return newErrors;
     });
   };
@@ -60,89 +55,127 @@ export default function SignUpPage() {
     try {
       const res = await request(payload);
       if (res?.status === 200) {
-        toast.success("Logged In successfully 🎉");
-        // Persist auth in store and localStorage
+        toast.success("Access Granted 🎉");
         login(res.user, res.accessToken);
         localStorage.setItem("token", res.accessToken);
-        // Redirect to next or default path
         router.push(nextPath);
       } else {
         toast.error("Something went wrong, please try again later");
       }
     } catch (err) {
-      console.log("login error", err);
       toast.error(error);
     }
   };
 
   return (
-    <form onSubmit={handleSignup}>
+    <main className="h-screen w-full bg-[#020408] flex overflow-hidden font-sans">
       {loading && <Loading />}
-      <section className="min-h-screen w-full bg-[#060d1b] flex items-center justify-center px-4">
-        <div className="bg-[#0f1b30] w-full max-w-md rounded-xl shadow-xl p-8">
-          <h2 className="text-2xl font-semibold text-white mb-6">
-            Create an account
-          </h2>
-
-          <p className="text-gray-400 text-sm mb-8">
-            Enter your email below to create your organizer account
-          </p>
-
-          <label className="text-gray-300 text-sm">Email</label>
-          <input
-            name="email"
-            type="email"
-            placeholder="m@example.com"
-            className="w-full mt-1 mb-4 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.email}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.email && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.email}
-              </span>
-            )}
+      
+      {/* LEFT SIDE: Cinematic Feature Stage (Dark Theme) */}
+      <section className="hidden lg:flex flex-[0.6] bg-[#020408] border-r border-white/5 relative items-center justify-center p-20 overflow-hidden">
+        {/* Atmospheric Glows */}
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-amber-600/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-yellow-500/5 rounded-full blur-[100px]" />
+        
+        <div className="relative z-10 max-w-xl">
+          <div className="bg-amber-600/20 border border-amber-500/40 text-amber-500 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.4em] mb-8 inline-block shadow-2xl">
+            Broadcasting 2026
           </div>
-
-          <label className="text-gray-300 text-sm">Password</label>
-          <input
-            name="password"
-            type="password"
-            placeholder="••••••••"
-            className="w-full mt-1 mb-6 px-4 py-3 rounded-md bg-[#0c1527] border border-[#1e2a40] text-white focus:border-yellow-400 focus:ring-0 outline-none"
-            value={form.password}
-            onChange={handleChange}
-          />
-          <div>
-            {formErrors?.password && (
-              <span className="mt-1 inline-block rounded-md bg-red-500/10 px-2 py-1 text-xs text-red-400">
-                {formErrors.password}
-              </span>
-            )}
-          </div>
-          <button
-            type="submit"
-            disabled={hasErrors || loading}
-            className={`w-full py-3 rounded-md font-semibold transition-all duration-200
-                ${
-                  hasErrors || loading
-                    ? "bg-yellow-400/40 text-black/50 cursor-not-allowed shadow-inner"
-                    : "bg-yellow-400 hover:bg-yellow-500 text-black hover:shadow-lg hover:-translate-y-px-active:translate-y-0"
-                }
-              `}
-          >
-            {loading ? "Creating..." : "Login"}
-          </button>
-
-          <p className="text-center text-gray-400 text-sm mt-4">
-            Dontt have an account ?{" "}
-            <a href="/signup" className="text-yellow-400 hover:underline">
-              Sign Up
-            </a>
+          <h1 className="text-8xl font-black text-white italic uppercase tracking-tighter leading-[0.85] mb-8">
+            Manage <br />
+            <span className="text-amber-500 underline decoration-white/10 underline-offset-8">Your Own</span> <br />
+            Auction.
+          </h1>
+          <p className="text-white/40 text-lg font-medium leading-relaxed italic">
+            Professional grade auction management system for elite tournaments. <br />
+            Real-time bidding, live ledger, and cinematic broadcast UI.
           </p>
         </div>
+
+        {/* Decorative Lines */}
+        <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-amber-600 via-yellow-400 to-transparent opacity-20" />
       </section>
-    </form>
+
+      {/* RIGHT SIDE: Studio Login Desk (Dark Theme) */}
+      <section className="flex-grow lg:flex-[0.4] flex items-center justify-center p-8 bg-[#020408] relative">
+        <div className="w-full max-w-sm animate-in fade-in slide-in-from-right-10 duration-700 relative z-10">
+          <div className="mb-12">
+            <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter mb-2">
+              Organizer <span className="text-amber-500">Login</span>
+            </h2>
+            <p className="text-white/30 text-[10px] font-black uppercase tracking-[0.2em] italic">
+              Enter secure credentials to access console
+            </p>
+          </div>
+
+          <form onSubmit={handleSignup} className="space-y-6">
+            <div className="group">
+              <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-3 ml-2 italic">
+                Corporate Email
+              </label>
+              <input
+                name="email"
+                type="email"
+                placeholder="m@example.com"
+                className={`w-full bg-white/[0.03] px-6 py-4 rounded-2xl border transition-all outline-none text-sm font-bold text-white focus:bg-white/[0.06]
+                  ${formErrors.email ? "border-red-500/50" : "border-white/5 focus:border-amber-500/50"}
+                `}
+                value={form.email}
+                onChange={handleChange}
+              />
+              {formErrors.email && (
+                <span className="mt-2 inline-block text-[10px] font-black text-red-500 uppercase tracking-tight ml-2 italic">
+                  {formErrors.email}
+                </span>
+              )}
+            </div>
+
+            <div className="group">
+              <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-3 ml-2 italic">
+                Secure Password
+              </label>
+              <input
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                className={`w-full bg-white/[0.03] px-6 py-4 rounded-2xl border transition-all outline-none text-sm font-bold text-white focus:bg-white/[0.06]
+                  ${formErrors.password ? "border-red-500/50" : "border-white/5 focus:border-amber-500/50"}
+                `}
+                value={form.password}
+                onChange={handleChange}
+              />
+              {formErrors.password && (
+                <span className="mt-2 inline-block text-[10px] font-black text-red-500 uppercase tracking-tight ml-2 italic">
+                  {formErrors.password}
+                </span>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={hasErrors || loading}
+              className={`w-full py-5 rounded-2xl font-black uppercase text-xs tracking-[0.3em] transition-all duration-300 shadow-2xl active:scale-95 cursor-pointer
+                ${
+                  hasErrors || loading
+                    ? "bg-white/5 text-white/20 cursor-not-allowed border border-white/5"
+                    : "bg-gradient-to-r from-amber-600 to-amber-400 text-white shadow-amber-900/40 hover:brightness-110"
+                }
+              `}
+            >
+              {loading ? "Verifying..." : "Enter Console 🔨"}
+            </button>
+          </form>
+
+          <div className="mt-12 pt-8 border-t border-white/5 text-center">
+            <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">
+              New Organizer?{" "}
+              <a href="/signup" className="text-amber-500 hover:text-amber-400 transition-colors ml-2 underline underline-offset-4 decoration-amber-500/30">
+                Register Tournament
+              </a>
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Team from "@/models/Team";
+import Tournament from "@/models/Tournament";
 import { verifyAuth } from "../../../lib/auth";
 
 export async function POST(req) {
   try {
     await connectDB();
-    console.log("Hello");
+
     // VERIFY TOKEN
     const auth = verifyAuth(req);
     if (auth.error) {
@@ -16,13 +17,24 @@ export async function POST(req) {
     const { userId, role } = auth.user;
     const body = await req.json();
 
-    const { name, owner, shortCode } = body;
+    const { name, owner, shortCode, tournamentId } = body;
 
-    if (!name || !owner || !shortCode) {
+    if (!name || !owner || !shortCode || !tournamentId) {
       return NextResponse.json(
-        { message: "All fields are required" },
+        { message: "All fields are required (including tournamentId)" },
         { status: 400 }
       );
+    }
+
+    // Verify tournament exists
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament) {
+      return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
+    }
+
+    // Authorization: only admins or the tournament owner can add teams
+    if (role !== "admin" && String(tournament.createdBy) !== String(userId)) {
+      return NextResponse.json({ message: "You are not allowed to add teams to this tournament" }, { status: 403 });
     }
 
     const team = await Team.create({
@@ -30,6 +42,7 @@ export async function POST(req) {
       owner,
       shortCode,
       createdBy: userId,
+      tournamentId,
     });
 
     return NextResponse.json(
@@ -67,7 +80,13 @@ export async function GET(req) {
     if (auth.error) {
       return NextResponse.json({ message: auth.error }, { status: 401 });
     }
-    const teams = await Team.find().sort({ createdAt: -1 });
+
+    const { searchParams } = new URL(req.url);
+    const tournamentId = searchParams.get("tournamentId");
+
+    const query = tournamentId ? { tournamentId } : {};
+
+    const teams = await Team.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json({ data: teams }, { status: 200 });
   } catch (error) {

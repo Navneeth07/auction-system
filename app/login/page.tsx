@@ -1,17 +1,21 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "../hooks/useApi";
 import { loginUser } from "../lib/api/api";
 import { useState } from "react";
 import Loading from "../components/Loading";
 import toast from "react-hot-toast";
+import { useAuthStore } from "../store/authStore";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = searchParams?.get("next") || "/setup-tournament";
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
+  const { login } = useAuthStore();
   const [formErrors, setFormErrors] = useState({
     email: "",
     password: "",
@@ -57,15 +61,16 @@ export default function SignUpPage() {
       const res = await request(payload);
       if (res?.status === 200) {
         toast.success("Logged In successfully 🎉");
-        loginUser(res.user);
-        router.push("/setup-tournament");
-        // Persist token
+        // Persist auth in store and localStorage
+        login(res.user, res.accessToken);
         localStorage.setItem("token", res.accessToken);
+        // Redirect to next or default path
+        router.push(nextPath);
       } else {
-        toast.error("Somethin went wrong, please try again later");
+        toast.error("Something went wrong, please try again later");
       }
     } catch (err) {
-      console.log("regeistration error", err);
+      console.log("login error", err);
       toast.error(error);
     }
   };

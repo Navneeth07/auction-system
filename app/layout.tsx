@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast"
 import "./globals.css";
 import Header from "./components/Header";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export const metadata: Metadata = {
   title: "CricAuction",
@@ -25,7 +26,7 @@ export default function RootLayout({
           loginText="Login"
         />
 
-        {children}
+        <ProtectedRoute>{children}</ProtectedRoute>
         <Toaster position="top-right" reverseOrder={false} />
       </body>
     </html>

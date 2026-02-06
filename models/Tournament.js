@@ -5,7 +5,6 @@ const RoleSchema = new mongoose.Schema(
     role: {
       type: String,
       required: true,
-      unique: true,
       trim: true,
     },
 

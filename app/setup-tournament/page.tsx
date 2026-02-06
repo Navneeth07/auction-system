@@ -112,6 +112,13 @@ export default function SetupTournamentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+     if (selectedId) {
+    localStorage.setItem("selectedTournamentId", selectedId);
+    toast.success("Using existing tournament");
+    router.push("/register-teams");
+    return;
+  }
+
     const payload = {
       name: form.name,
       date: form.date,
@@ -130,6 +137,7 @@ export default function SetupTournamentPage() {
         localStorage.setItem("selectedTournamentId", res.data._id);
         setSelectedId(res.data._id);
       }
+
       toast.success("Tournament created 🏏");
       router.push('/register-teams')
     } catch {
@@ -150,7 +158,7 @@ export default function SetupTournamentPage() {
           <div className="max-w-7xl mx-auto mb-6">
             <h3 className="text-lg font-semibold">Tournaments</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-              {(listData as any).data.map((t: any) => (
+              {(listData as any).data.map((t: unknown) => (
                 <div
                   key={t._id}
                   role="button"

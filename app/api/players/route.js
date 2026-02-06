@@ -4,12 +4,13 @@ import Player from "@/models/Player";
 import TournamentPlayer from "@/models/TournamentPlayer";
 import Tournament from "@/models/Tournament";
 import { verifyAuth } from "@/lib/auth";
+import  cloudinary from "@/lib/cloudinary";
 
 export async function POST(req) {
   try {
     await connectDB();
 
-    // AUTH
+    // 🔐 AUTH
     const auth = verifyAuth(req);
     if (auth.error) {
       return NextResponse.json(
@@ -19,15 +20,43 @@ export async function POST(req) {
     }
 
     const { userId } = auth.user;
-    const body = await req.json();
 
-    const { fullName, phoneNumber, emailId, tournamentId } = body;
+    // ✅ Read multipart/form-data
+    const formData = await req.formData();
+
+    const fullName = formData.get("fullName");
+    const phoneNumber = formData.get("phoneNumber");
+    const emailId = formData.get("emailId");
+    const tournamentId = formData.get("tournamentId");
+    const imageFile = formData.get("image"); // 🖼️ file
 
     if (!fullName || !phoneNumber) {
       return NextResponse.json(
         { message: "fullName and phoneNumber are required" },
         { status: 400 }
       );
+    }
+
+    let imageUrl = null;
+console.log("imageFile>>",imageFile)
+    // 🖼️ Upload image if provided
+    if (imageFile && imageFile.size > 0) {
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const uploadResult = await new Promise((resolve, reject) => {
+        cloudinary.uploader.upload_stream(
+          {
+            folder: "players",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            resolve(result);
+          }
+        ).end(buffer);
+      });
+console.log("uploadResult>>>",uploadResult)
+      imageUrl = uploadResult.secure_url;
     }
 
     /**
@@ -37,16 +66,16 @@ export async function POST(req) {
       fullName,
       phoneNumber,
       emailId,
+      image: imageUrl,
       createdBy: userId,
     });
 
     let tournamentMapping = null;
 
     /**
-     * STEP 2: If tournamentId provided → map player
+     * STEP 2: If tournamentId → map player
      */
     if (tournamentId) {
-      // Optional: Validate tournament ownership
       const tournament = await Tournament.findOne({
         _id: tournamentId,
         createdBy: userId,
@@ -72,10 +101,7 @@ export async function POST(req) {
         message: tournamentId
           ? "Player created and registered to tournament"
           : "Player created successfully",
-        data: {
-          player,
-          tournamentMapping,
-        },
+        data:player,
       },
       { status: 201 }
     );
@@ -99,7 +125,6 @@ export async function POST(req) {
     );
   }
 }
-
 
 /**
  * GET PLAYERS

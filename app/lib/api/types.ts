@@ -1,38 +1,33 @@
+/* ================= AUTH ================= */
 export type RegisterPayload = {
   fullName: string;
   email: string;
   password: string;
 };
 
+export type AuthUser = {
+  id: string;
+  fullName: string;
+  email: string;
+};
+
 export type AuthResponse = {
-  user: {
-    id: string;
-    fullName: string;
-    email: string;
-  };
+  user: AuthUser;
   accessToken: string;
   message: string;
-  status:number;
+  status: number;
 };
 
 export type LoginPayload = {
-  email: string
-  password: string
-}
-
-
-export type LoginResponse = {
-  user: {
-    id: string;
-    fullName: string;
-    email: string;
-  };
-  accessToken: string;
-  message?: string;
-  status:number;
+  email: string;
+  password: string;
 };
 
+export type LoginResponse = AuthResponse;
+
+/* ================= ROLE ================= */
 export type RolePricing = {
+  _id: string;
   role: string;
   basePrice: number;
   biddingPrice: number;
@@ -43,7 +38,14 @@ export type RolesDropdownResponse = {
   status: number;
 };
 
+/* ================= TOURNAMENT ================= */
+export type Tournament = {
+  _id: string;
+  name: string;
+};
+
 export type TournamentPayload = {
+  _id?: string;
   name: string;
   date: string;
   budget: number;
@@ -53,58 +55,7 @@ export type TournamentPayload = {
   roles: RolePricing[];
 };
 
-export type TournamentResponse = {
-  message: string;
-  data: {
-    name: string;
-    date: string;
-    budget: number;
-    minPlayers: number;
-    maxPlayers: number;
-    rules: string;
-    roles: RolePricing[];
-  };
-  status: number;
-};
-
-export type TournamentsResponse = {
-  data: Array<{
-    _id: string;
-    name: string;
-    date: string;
-    budget: number;
-    minPlayers: number;
-    maxPlayers: number;
-    rules: string;
-    roles: RolePricing[];
-    createdBy?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  }>;
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-};
-
-export type SingleTournamentResponse = {
-  data: {
-    _id: string;
-    name: string;
-    date: string;
-    budget: number;
-    minPlayers: number;
-    maxPlayers: number;
-    rules: string;
-    roles: RolePricing[];
-    createdBy?: string;
-    createdAt?: string;
-    updatedAt?: string;
-  };
-};
-
+/* ================= TEAM ================= */
 export type Team = {
   id?: string;
   name: string;
@@ -115,32 +66,31 @@ export type Team = {
 };
 
 export type TeamResponse = {
-  message:string,
-  status:number,
-  data:{
-    name:string,
-    owner:string,
-    shortCode:string,
-    tournamentId?: string
-  }
-}
+  message: string;
+  status: number;
+  data: Team;
+};
 
+/* ================= PLAYER ================= */
 export type Player = {
   id: string;
   name: string;
   role: string;
   basePrice: number;
   biddingPrice: number;
+  image?: string;
 };
 
 export type PlayersResponse = {
-  data: Player[];
-  status?: number;
+  data: {
+    data: any[];
+  };
 };
 
 export type PlayerResponse = {
-  data: Player;
-  status?: number;
+  data: {
+    _id: string;
+    fullName: string;
+    image?: string;
+  };
 };
-
-

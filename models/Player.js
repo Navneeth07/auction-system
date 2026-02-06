@@ -19,6 +19,11 @@ const PlayerSchema = new mongoose.Schema(
       trim: true,
     },
 
+    image: {
+      type: String, // store the returned URL
+      trim: true,
+      default: null,
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -17,7 +17,7 @@ export async function POST(req) {
     const { userId, role } = auth.user;
     const body = await req.json();
 
-    const { name, owner, shortCode, tournamentId, totalPurse ,remainingPurse } = body;
+    const { name, owner, shortCode, tournamentId} = body;
 
     if (!name || !owner || !shortCode || !tournamentId) {
       return NextResponse.json(
@@ -43,8 +43,8 @@ export async function POST(req) {
       shortCode,
       createdBy: userId,
       tournamentId,
-      totalPurse,
-      remainingPurse
+      totalPurse:tournament.budget,
+      remainingPurse:tournament.budget
     });
 
     return NextResponse.json(

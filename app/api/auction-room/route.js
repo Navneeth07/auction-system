@@ -154,7 +154,7 @@ export async function GET(req) {
     const tournamentPlayers = await TournamentPlayer.find({
       tournamentId,
       createdBy: userId,
-    }).populate("playerId");
+    }).populate("playerId").populate("soldTo", "name shortCode");;
 
     // 3️⃣ Build Roles Structure
     const roles = {};
@@ -181,6 +181,15 @@ export async function GET(req) {
         basePrice: tp.basePrice,
         biddingPrice: tp.biddingPrice,
         status: tp.status,
+        soldTo: tp.status === "sold" && tp.soldTo
+          ? {
+            id: tp.soldTo._id,
+            name: tp.soldTo.name,
+            shortCode: tp.soldTo.shortCode,
+          }
+          : null,
+
+        soldAmount: tp.status === "sold" ? tp.soldAmount : null,
       };
 
       if (!roles[tp.role]) {

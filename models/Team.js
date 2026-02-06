@@ -21,7 +21,18 @@ const TeamSchema = new mongoose.Schema(
       trim: true,
       minlength: 2,
       maxlength: 5,
-      unique: true,
+    },
+
+    totalPurse: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
+    remainingPurse: {
+      type: Number,
+      required: true,
+      min: 0,
     },
 
     createdBy: {
@@ -35,9 +46,14 @@ const TeamSchema = new mongoose.Schema(
       ref: "Tournament",
       required: true,
     },
-
   },
   { timestamps: true }
+);
+
+// Unique per tournament
+TeamSchema.index(
+  { shortCode: 1, tournamentId: 1 },
+  { unique: true }
 );
 
 export default mongoose.models.Team ||

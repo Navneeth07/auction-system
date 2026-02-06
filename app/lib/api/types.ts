@@ -111,3 +111,50 @@ export type PaginatedPlayersResponse = {
     roles?: Record<string, number>;
   };
 };
+
+export type AuctionPlayer = {
+  id: string;
+  fullName: string;
+  image?: string;
+  phoneNumber: string;
+  emailId?: string | null;
+  role: string;
+  basePrice: number;
+  biddingPrice: number;
+  status: "registered" | "sold" | "unsold";
+};
+
+export type AuctionRoleGroup = {
+  basePrice: number;
+  biddingPrice: number;
+  players: AuctionPlayer[];
+};
+
+export type AuctionTeam = {
+  id: string;
+  name: string;
+  owner: string;
+  shortCode: string;
+  totalPurse?: number;
+  remainingPurse?: number;
+};
+
+export type AuctionTournament = {
+  id: string;
+  name: string;
+  date: string;
+  budget: number;
+  minPlayers: number;
+  maxPlayers: number;
+};
+
+
+export type AuctionRoomResponse = {
+  tournament: AuctionTournament;
+
+  roles: Record<string, AuctionRoleGroup>;
+
+  teams: AuctionTeam[];
+
+  activePlayer: AuctionPlayer | null;
+};

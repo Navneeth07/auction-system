@@ -12,6 +12,7 @@ import {
   PlayersResponse,
   PlayerResponse,
   PaginatedPlayersResponse,
+  AuctionRoomResponse,
 } from "./types";
 
 /* ---------- AUTH ---------- */
@@ -44,7 +45,6 @@ export const getTournaments = (page = 1, limit = 10) =>
     };
   }>(`${API.TOURNAMENT}?page=${page}&limit=${limit}`);
 
-/* ---------- TEAM ---------- */
 export const registerteams = (data: Team) =>
   api.post<TeamResponse>(API.REGISTER_TEAMS, data);
 
@@ -53,14 +53,12 @@ export const getTeams = (tournamentId?: string) =>
     `${API.REGISTER_TEAMS}${tournamentId ? `?tournamentId=${tournamentId}` : ""}`,
   );
 
-/* ---------- ROLES & PLAYERS ---------- */
 export const getRolesDropdown = (tournamentId: string) =>
   api.get<RolesDropdownResponse>(`/tournaments/${tournamentId}/roles-dropdown`);
 
 export const getPlayers = (tournamentId: string) =>
   api.get<PlayersResponse>(`/tournament-players?tournamentId=${tournamentId}`);
 
-/* ✅ REAL CREATE PLAYER (FormData) */
 export const createPlayer = (formData: FormData) =>
   api.post<PlayerResponse>("/players", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -73,4 +71,9 @@ export const getPaginatedPlayers = (
 ) =>
   api.get<PaginatedPlayersResponse>(
     `/players?tournamentId=${tournamentId}&page=${page}&limit=${limit}`,
+  );
+
+export const getAuctionRoom = (tournamentId: string) =>
+  api.get<AuctionRoomResponse>(
+    `/auction-room?tournamentId=${encodeURIComponent(tournamentId)}`,
   );

@@ -15,7 +15,6 @@ import {
 // ================= API, Types, Store =================
 import {
   getRolesDropdown,
-  getPlayers,          // ⛔ EXISTING (NOT REMOVED)
   createPlayer,
   getPaginatedPlayers  // ✅ ADDED
 } from "../lib/api/api";
@@ -50,24 +49,9 @@ export default function PlayerPoolPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // ==================================================
-  // ⛔ EXISTING GET API (NOT USED FOR UI – NOT REMOVED)
-  // ==================================================
-  const fetchPlayerData = async () => {
-    if (!tournamentId) return;
-    try {
-      await getPlayers(tournamentId);
-    } catch (err) {
-      console.error("Failed to fetch players:", err);
-    }
-  };
-
-  // ==================================================
-  // ✅ ADDED – LEFT SIDE DISPLAY API
-  // ==================================================
   const fetchPaginatedPlayers = async () => {
     try {
-      const res = await getPaginatedPlayers(page, limit);
+      const res = await getPaginatedPlayers(tournamentId, page, limit);
 
       setPlayers(res.data.data || []);
       setTotalPlayers(res.data.pagination?.total || 0);
@@ -79,28 +63,22 @@ export default function PlayerPoolPage() {
 
   // ================= INITIAL LOAD =================
   useEffect(() => {
-    const initPage = async () => {
-      if (!tournamentId) {
-        setIsInitialLoading(false);
-        return;
-      }
+    if (!tournamentId) return;
+
+    const init = async () => {
       try {
         setIsInitialLoading(true);
-
-        await Promise.all([
-          getRolesDropdown(tournamentId).then(res => {
-            if (res.data?.roles) setRoles(res.data.roles);
-          }),
-          fetchPaginatedPlayers()
-        ]);
-
-      } catch (err) {
-        console.error("Initialization error:", err);
+        const rolesRes = await getRolesDropdown(tournamentId);
+        if (rolesRes.data?.roles) setRoles(rolesRes.data.roles);
+        await fetchPaginatedPlayers();
       } finally {
         setIsInitialLoading(false);
       }
     };
-    initPage();
+
+    init();
+
+   init();
   }, [tournamentId]);
 
   // ================= HANDLERS =================
@@ -132,6 +110,7 @@ export default function PlayerPoolPage() {
   // ================= CREATE PLAYER =================
   const handleAddPlayer = async (e: FormEvent) => {
     e.preventDefault();
+    if (!tournamentId) return;
     if (!formData.fullName || !formData.phoneNumber || !formData.role || !tournamentId) {
       alert("Please fill all fields.");
       return;

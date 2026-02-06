@@ -66,5 +66,11 @@ export const createPlayer = (formData: FormData) =>
     headers: { "Content-Type": "multipart/form-data" },
   });
 
-export const getPaginatedPlayers = (page = 1, limit = 3) =>
-  api.get<PaginatedPlayersResponse>(`/players?page=${page}&limit=${limit}`);
+export const getPaginatedPlayers = (
+  tournamentId: string,
+  page = 1,
+  limit = 10,
+) =>
+  api.get<PaginatedPlayersResponse>(
+    `/players?tournamentId=${tournamentId}&page=${page}&limit=${limit}`,
+  );

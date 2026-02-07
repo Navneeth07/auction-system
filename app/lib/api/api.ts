@@ -72,10 +72,13 @@ export const getPaginatedPlayers = (
     `/players?tournamentId=${tournamentId}&page=${page}&limit=${limit}`,
   );
 
-export const getAuctionRoom = (tournamentId: string) =>
-  api.get<AuctionRoomResponse>(
-    `/auction-room?tournamentId=${encodeURIComponent(tournamentId)}`,
-  );
+export const getAuctionRoom = (tournamentId: string, tournamentPlayerId?: string) => {
+  let url = `/auction-room?tournamentId=${encodeURIComponent(tournamentId)}`;
+  if (tournamentPlayerId) {
+    url += `&tournamentPlayerId=${encodeURIComponent(tournamentPlayerId)}`;
+  }
+  return api.get<AuctionRoomResponse>(url);
+};
 
 export const postAuctionBid = (payload: {
   tournamentPlayerId: string;
@@ -85,7 +88,7 @@ export const postAuctionBid = (payload: {
   return api.post(`/auction-room`, payload);
 };
 
-export const hammerDownPlayer = (payload: { tournamentPlayerId: string }) => {
+export const hammerDownPlayer = (payload: { tournamentPlayerId: string; teamId?: string }) => {
   return api.post("/hammer-down", payload);
 };
 

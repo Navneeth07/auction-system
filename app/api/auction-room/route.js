@@ -65,7 +65,11 @@ export async function POST(req) {
       // 🔥 FIXED BID INCREMENT LOGIC
       const increment = player.biddingPrice;
 
-      if (team.remainingPurse < increment) {
+      // 🔥 New price after bid (Base Price + all increments)
+      const newPrice = player.basePrice + increment;
+
+      // Check if team has enough purse for the FULL new price (not just increment)
+      if (team.remainingPurse < newPrice) {
         await session.abortTransaction();
         session.endSession();
         return NextResponse.json(
@@ -73,9 +77,6 @@ export async function POST(req) {
           { status: 400 }
         );
       }
-
-      // 🔥 New price after bid
-      const newPrice = player.basePrice + increment;
 
       // Update player's current price using findOneAndUpdate for atomic operation
       const updatedPlayer = await TournamentPlayer.findOneAndUpdate(
@@ -91,10 +92,10 @@ export async function POST(req) {
         throw new Error("Failed to update player price");
       }
 
-      // Deduct from team purse
+      // 🔥 Deduct FULL new price from team purse (Base Price + all increments)
       const updatedTeam = await Team.findOneAndUpdate(
         { _id: teamId },
-        { $inc: { remainingPurse: -increment } },
+        { $inc: { remainingPurse: -newPrice } },
         { 
           session,
           new: true

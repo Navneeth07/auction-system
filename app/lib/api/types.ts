@@ -1,4 +1,3 @@
-/* ================= AUTH ================= */
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -25,7 +24,6 @@ export type LoginPayload = {
 
 export type LoginResponse = AuthResponse;
 
-/* ================= ROLE ================= */
 export type RolePricing = {
   _id: string;
   role: string;
@@ -38,7 +36,6 @@ export type RolesDropdownResponse = {
   status: number;
 };
 
-/* ================= TOURNAMENT ================= */
 export type Tournament = {
   _id: string;
   name: string;
@@ -55,14 +52,15 @@ export type TournamentPayload = {
   roles: RolePricing[];
 };
 
-/* ================= TEAM ================= */
 export type Team = {
-  id?: string;
+  id: string;
+  _id?: string;
   name: string;
   owner: string;
   shortCode: string;
   tournamentId?: string;
-  purse?: number;
+  totalPurse?: number;
+  remainingPurse: number;
 };
 
 export type TeamResponse = {
@@ -71,19 +69,20 @@ export type TeamResponse = {
   data: Team;
 };
 
-/* ================= PLAYER ================= */
 export type Player = {
   id: string;
-  name: string;
+  fullName: string;
+  tournamentPlayerId?: string;
   role: string;
   basePrice: number;
   biddingPrice: number;
   image?: string;
+  status?: "registered" | "sold";
 };
 
 export type PlayersResponse = {
   data: {
-    data: any[];
+    data: Player[];
   };
 };
 
@@ -112,15 +111,27 @@ export type PaginatedPlayersResponse = {
   };
 };
 
-type AuctionPlayer = {
+export type BiddingHistoryItem = {
+  teamCode: string;
+  amount: number;
+  timestamp: number;
+};
+
+export type AuctionPlayer = {
   id: string;
   fullName: string;
-  tournamentPlayerId?: string; // optional (API inconsistency)
+  tournamentPlayerId?: string;
   image?: string;
   role: string;
   basePrice: number;
   biddingPrice: number;
   status: "registered" | "sold";
+  soldTo?: {
+    id: string;
+    name: string;
+    shortCode: string;
+  };
+  soldAmount?: number;
 };
 
 export type AuctionRoleGroup = {
@@ -147,13 +158,43 @@ export type AuctionTournament = {
   maxPlayers: number;
 };
 
-
 export type AuctionRoomResponse = {
   tournament: AuctionTournament;
-
   roles: Record<string, AuctionRoleGroup>;
-
   teams: AuctionTeam[];
-
   activePlayer: AuctionPlayer | null;
+  biddingHistory: BiddingHistoryItem[];
+};
+
+/* ================= DASHBOARD ================= */
+export type DashboardStats = {
+  tournament: {
+    id: string;
+    name: string;
+    budget: number;
+    maxPlayers: number;
+  };
+  overallStats: {
+    totalPlayersSoldDisplay: string;
+    totalPlayersSold: number;
+    totalSpendAmount: number;
+    highestBid: {
+      playerName: string;
+      soldAmount: number;
+      teamName: string;
+      teamShortCode: string;
+    };
+  };
+  teams: (AuctionTeam & {
+    playersBought: number;
+    maxPlayersAllowed: number;
+    playerCountDisplay: string;
+    totalFundSpent: number;
+    players: {
+      playerId: string;
+      playerName: string;
+      role: string;
+      soldAmount: number;
+    }[];
+  })[];
 };

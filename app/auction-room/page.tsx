@@ -24,6 +24,7 @@ type Player = {
   soldAmount?: number;
 };
 
+
 type Team = {
   id: string;
   name: string;

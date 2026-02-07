@@ -75,7 +75,7 @@ export default function AuctionRoomPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmationStep, setConfirmationStep] = useState(1);
-  const [showNoTeamWarning, setShowNoTeamWarning] = useState(false);
+  const [showTeamSelectionModal, setShowTeamSelectionModal] = useState(false);
 
   const [rightPanelTab, setRightPanelTab] = useState<"bids" | "sold">("bids");
   const [isEditingBiddingPrice, setIsEditingBiddingPrice] = useState(false);
@@ -277,25 +277,43 @@ export default function AuctionRoomPage() {
   const handleHammerDownClick = () => {
     if (!activePlayer) return;
     
-    // Show warning popup if no team is selected, but still allow proceeding
+    // Show team selection popup if no team is selected
     if (!leadingTeam) {
-      setShowNoTeamWarning(true);
-      setConfirmationStep(1);
-      setIsModalOpen(true);
+      setShowTeamSelectionModal(true);
       return;
     }
     
-    setShowNoTeamWarning(false);
+    setConfirmationStep(1);
+    setIsModalOpen(true);
+  };
+
+  const handleTeamSelectionForHammer = async (selectedTeam: Team) => {
+    if (!activePlayer || !activePlayer.tournamentPlayerId) return;
+    
+    setShowTeamSelectionModal(false);
+    
+    // Set the selected team as leading team
+    setLeadingTeam(selectedTeam);
+    setCurrentBid(activePlayer.basePrice);
+    
+    // Show confirmation modal
     setConfirmationStep(1);
     setIsModalOpen(true);
   };
 
   const executeHammerDown = async () => {
-    if (!activePlayer || !activePlayer.tournamentPlayerId) return;
+    if (!activePlayer || !activePlayer.tournamentPlayerId || !leadingTeam) {
+      setIsModalOpen(false);
+      return;
+    }
+    
     setIsModalOpen(false);
 
     try {
-      const res = await hammerDownPlayer({ tournamentPlayerId: activePlayer.tournamentPlayerId });
+      const res = await hammerDownPlayer({ 
+        tournamentPlayerId: activePlayer.tournamentPlayerId,
+        teamId: leadingTeam.id
+      });
       
       // Handle unsold case
       if (res.data.status === "unsold") {
@@ -344,6 +362,15 @@ export default function AuctionRoomPage() {
             mapped[role] = (data.roles[role].players as Player[]) || [];
           });
 
+          // Update teams with fresh data from API
+          const mappedTeams: Team[] = (data.teams || []).map((t: AuctionTeam) => ({
+            id: t.id,
+            name: t.name,
+            shortCode: t.shortCode,
+            remainingPurse: t.remainingPurse ?? 0
+          }));
+          setTeams(mappedTeams);
+
           setPlayersByCategory(mapped);
 
           const firstValidCat = findFirstAvailableCategory(roles, mapped);
@@ -370,7 +397,7 @@ export default function AuctionRoomPage() {
                 if (parsedHistory.length > 0) {
                   setBidHistory(parsedHistory);
                   const latestBid = parsedHistory[0];
-                  const leadingTeamFromHistory = teams.find(t => t.shortCode === latestBid.teamCode);
+                  const leadingTeamFromHistory = mappedTeams.find(t => t.shortCode === latestBid.teamCode);
                   if (leadingTeamFromHistory) {
                     setLeadingTeam(leadingTeamFromHistory);
                   }
@@ -407,6 +434,56 @@ export default function AuctionRoomPage() {
   return (
     <div className="h-screen bg-[#020408] text-white p-4 flex flex-col relative overflow-hidden font-sans">
 
+      {/* TEAM SELECTION MODAL */}
+      {showTeamSelectionModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="bg-[#0a0c10] border border-white/10 w-full max-w-2xl rounded-[3.5rem] p-10 shadow-[0_0_100px_rgba(245,158,11,0.3)] relative overflow-hidden transform animate-in zoom-in-95 duration-200">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.8)]" />
+            
+            <div className="text-center mb-6">
+              <span className="text-amber-500 font-black uppercase tracking-[0.4em] text-[10px] mb-4 block italic">Select Team</span>
+              <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-2 text-white">Choose Team for <span className="text-amber-500">{activePlayer?.fullName}</span></h2>
+              <p className="text-white/50 text-sm mb-2 leading-relaxed italic">
+                Player will be sold at base price: <span className="text-amber-500 font-bold">{formatRupees(activePlayer?.basePrice || 0)}</span>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+              {teams.map(team => (
+                <button
+                  key={team.id}
+                  onClick={() => handleTeamSelectionForHammer(team)}
+                  className="p-6 rounded-2xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-amber-500/50 transition-all text-left group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-12 h-12 bg-amber-500/20 rounded-xl flex items-center justify-center font-black text-xl text-amber-400 border border-amber-500/30 group-hover:bg-amber-500/30 transition-colors">
+                      {team.shortCode[0]}
+                    </div>
+                    <p className="text-2xl font-black italic tracking-tighter uppercase text-white group-hover:text-amber-500 transition-colors">
+                      {team.shortCode}
+                    </p>
+                  </div>
+                  <p className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">{team.name}</p>
+                  <div className="border rounded-lg px-3 py-2 bg-black/40 border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-amber-500/60 mb-1">Purse</p>
+                    <p className="text-sm font-black tabular-nums tracking-tighter text-amber-500">{formatRupees(team.remainingPurse)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setShowTeamSelectionModal(false)} 
+                className="w-full py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 2-LAYER SECURITY MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300">
@@ -415,41 +492,13 @@ export default function AuctionRoomPage() {
 
             {confirmationStep === 1 ? (
               <>
-                {showNoTeamWarning ? (
-                  <>
-                    <span className="text-red-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic animate-pulse">⚠️ Warning</span>
-                    <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">No Team <span className="text-red-500">Selected</span></h2>
-                    <p className="text-white/50 text-sm mb-4 leading-relaxed italic">
-                      You haven't selected a team for <span className="text-white font-bold">{activePlayer?.fullName}</span>.
-                    </p>
-                    <p className="text-amber-500/80 text-sm mb-6 leading-relaxed italic font-bold">
-                      Player will be marked as <span className="text-white">UNSOLD</span> if no bids exist.
-                    </p>
-                    <p className="text-white/30 text-xs mb-10 leading-relaxed">
-                      If you want to sell at base price (<span className="text-amber-500 font-bold">{formatRupees(activePlayer?.basePrice || 0)}</span>), please select a team first.
-                    </p>
-                    <div className="flex gap-4">
-                      <button onClick={() => {
-                        setIsModalOpen(false);
-                        setShowNoTeamWarning(false);
-                      }} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Select Team</button>
-                      <button onClick={() => {
-                        setShowNoTeamWarning(false);
-                        setConfirmationStep(2);
-                      }} className="flex-[2] py-4 rounded-xl bg-red-600/80 font-black uppercase text-xs hover:bg-red-600 transition-all shadow-lg">Proceed Anyway</button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-amber-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic">Step 01: Identification</span>
-                    <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">Confirm <span className="text-amber-500">Sale</span>?</h2>
-                    <p className="text-white/50 text-sm mb-10 leading-relaxed italic">Sell <span className="text-white font-bold">{activePlayer?.fullName}</span> to <span className="text-amber-500 font-bold">{leadingTeam?.name}</span> for <span className="text-white font-bold">{formatRupees(currentBid)}</span>?</p>
-                    <div className="flex gap-4">
-                      <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Back</button>
-                      <button onClick={() => setConfirmationStep(2)} className="flex-[2] py-4 rounded-xl bg-amber-600 font-black uppercase text-xs hover:bg-amber-500 transition-all shadow-lg">Proceed</button>
-                    </div>
-                  </>
-                )}
+                <span className="text-amber-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic">Step 01: Identification</span>
+                <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">Confirm <span className="text-amber-500">Sale</span>?</h2>
+                <p className="text-white/50 text-sm mb-10 leading-relaxed italic">Sell <span className="text-white font-bold">{activePlayer?.fullName}</span> to <span className="text-amber-500 font-bold">{leadingTeam?.name}</span> for <span className="text-white font-bold">{formatRupees(currentBid)}</span>?</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Back</button>
+                  <button onClick={() => setConfirmationStep(2)} className="flex-[2] py-4 rounded-xl bg-amber-600 font-black uppercase text-xs hover:bg-amber-500 transition-all shadow-lg">Proceed</button>
+                </div>
               </>
             ) : (
               <>

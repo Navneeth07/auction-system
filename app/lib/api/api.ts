@@ -88,7 +88,7 @@ export const postAuctionBid = (payload: {
   return api.post(`/auction-room`, payload);
 };
 
-export const hammerDownPlayer = (payload: { tournamentPlayerId: string }) => {
+export const hammerDownPlayer = (payload: { tournamentPlayerId: string; teamId?: string }) => {
   return api.post("/hammer-down", payload);
 };
 

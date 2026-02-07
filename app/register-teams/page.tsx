@@ -4,16 +4,16 @@ import { useState, useEffect, useRef } from "react";
 import { Team } from "../lib/api/types";
 import { useRouter } from "next/navigation";
 import { useApi } from "../hooks/useApi";
-import { registerteams, getTeams, deleteTeam } from "../lib/api/api"; // Added deleteTeam
+import { registerteams, getTeams, deleteTeam } from "../lib/api/api";
 import toast from "react-hot-toast";
 import Loading from "../components/Loading";
-import { useTournamentStore } from "../store/tournamentStore";
+import { useTournamentInit } from "../hooks/useTournamentInit";
 
 export default function RegisterTeamsPage() {
   const router = useRouter();
   const { request, loading, error } = useApi(registerteams);
-  const { request: deleteRequest, loading: deleting } = useApi(deleteTeam); // Added delete hook
-  const { tournament } = useTournamentStore();
+  const { request: deleteRequest, loading: deleting } = useApi(deleteTeam);
+  const { tournament } = useTournamentInit(); // This ensures tournament is loaded
   const [teams, setTeams] = useState<Team[]>([]);
 
   const [form, setForm] = useState<Team>({
@@ -26,19 +26,15 @@ export default function RegisterTeamsPage() {
   const teamsFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!tournament) {
-      toast.error("Tournament context missing. Redirecting...");
-      router.push("/setup-tournament");
-      return;
-    }
-
+    if (!tournament?._id) return;
+    
     if (teamsFetchedRef.current) return;
     teamsFetchedRef.current = true;
-
+    
     fetchTeamsRequest(tournament._id)
       .then((res) => setTeams(res?.data ? res.data : []))
       .catch((e) => console.warn("Failed to load teams", e));
-  }, [tournament, router, fetchTeamsRequest]);
+  }, [tournament?._id, fetchTeamsRequest]);
 
   const handleAddTeam = async () => {
     if (!form.name || !form.owner || !form.shortCode) return;

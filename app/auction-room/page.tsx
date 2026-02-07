@@ -75,6 +75,7 @@ export default function AuctionRoomPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [confirmationStep, setConfirmationStep] = useState(1);
+  const [showNoTeamWarning, setShowNoTeamWarning] = useState(false);
 
   const [rightPanelTab, setRightPanelTab] = useState<"bids" | "sold">("bids");
   const [isEditingBiddingPrice, setIsEditingBiddingPrice] = useState(false);
@@ -138,14 +139,57 @@ export default function AuctionRoomPage() {
       const firstValidCat = findFirstAvailableCategory(roles, mapped);
       setActiveCategory(firstValidCat);
 
+      let selectedPlayer: Player | null = null;
       if (data.activePlayer && data.activePlayer.status !== "sold") {
-        setActivePlayer(data.activePlayer as Player);
-        setCurrentBid(data.activePlayer.basePrice);
+        selectedPlayer = data.activePlayer as Player;
       } else {
         // Find first non-sold player from the mapped category
-        const firstAvailable = mapped[firstValidCat]?.find(p => p.status !== "sold") ?? null;
-        setActivePlayer(firstAvailable);
-        setCurrentBid(firstAvailable?.basePrice ?? 0);
+        selectedPlayer = mapped[firstValidCat]?.find(p => p.status !== "sold") ?? null;
+      }
+
+      if (selectedPlayer) {
+        setActivePlayer(selectedPlayer);
+        setCurrentBid(selectedPlayer.basePrice);
+
+        // Restore leading team and bid history from sessionStorage or API
+        const historyKey = getHistoryKey(tournamentId, selectedPlayer.id);
+        const savedHistory = sessionStorage.getItem(historyKey);
+        if (savedHistory) {
+          try {
+            const parsedHistory: BidHistoryItem[] = JSON.parse(savedHistory);
+            if (parsedHistory.length > 0) {
+              setBidHistory(parsedHistory);
+              // Find leading team from the latest bid
+              const latestBid = parsedHistory[0];
+              const leadingTeamFromHistory = mappedTeams.find(t => t.shortCode === latestBid.teamCode);
+              if (leadingTeamFromHistory) {
+                setLeadingTeam(leadingTeamFromHistory);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse saved history", e);
+          }
+        }
+
+        // Also check API bid history if available
+        if (data.biddingHistory && data.biddingHistory.length > 0) {
+          const apiHistory: BidHistoryItem[] = data.biddingHistory.map((bh: any) => ({
+            teamCode: bh.teamId?.shortCode || bh.teamId?.shortCode || "N/A",
+            amount: bh.bidAmount,
+            timestamp: new Date(bh.createdAt).getTime()
+          }));
+          if (apiHistory.length > 0) {
+            setBidHistory(apiHistory);
+            const latestBid = apiHistory[0];
+            const leadingTeamFromHistory = mappedTeams.find(t => t.shortCode === latestBid.teamCode);
+            if (leadingTeamFromHistory) {
+              setLeadingTeam(leadingTeamFromHistory);
+            }
+          }
+        }
+      } else {
+        setActivePlayer(null);
+        setCurrentBid(0);
       }
     });
   }, [tournamentId]);
@@ -231,17 +275,46 @@ export default function AuctionRoomPage() {
   };
 
   const handleHammerDownClick = () => {
-    if (!activePlayer || !leadingTeam) return;
+    if (!activePlayer) return;
+    
+    // Show warning popup if no team is selected, but still allow proceeding
+    if (!leadingTeam) {
+      setShowNoTeamWarning(true);
+      setConfirmationStep(1);
+      setIsModalOpen(true);
+      return;
+    }
+    
+    setShowNoTeamWarning(false);
     setConfirmationStep(1);
     setIsModalOpen(true);
   };
 
   const executeHammerDown = async () => {
-    if (!activePlayer || !leadingTeam || !activePlayer.tournamentPlayerId) return;
+    if (!activePlayer || !activePlayer.tournamentPlayerId) return;
     setIsModalOpen(false);
 
     try {
       const res = await hammerDownPlayer({ tournamentPlayerId: activePlayer.tournamentPlayerId });
+      
+      // Handle unsold case
+      if (res.data.status === "unsold") {
+        toast.success("Player marked as UNSOLD");
+        setPlayersByCategory(prev => {
+          const remaining = prev[activeCategory].filter(p => p.id !== activePlayer.id);
+          const firstAvailable = remaining.find(p => p.status !== "sold") || null;
+          setActivePlayer(firstAvailable);
+          setCurrentBid(firstAvailable?.basePrice ?? 0);
+          setLeadingTeam(null);
+          setBidHistory([]);
+          setCountdown(null);
+          stopCountdown();
+          return { ...prev, [activeCategory]: remaining };
+        });
+        return;
+      }
+
+      // Handle sold case
       const teamInfo = getTeamDataFromId(res.data.soldTo?.id || res.data.soldTo, teams);
 
       const newlySold: SoldPlayer = {
@@ -256,18 +329,78 @@ export default function AuctionRoomPage() {
       setSoldPlayers(prev => [newlySold, ...prev]);
       setRightPanelTab("sold");
 
-      setPlayersByCategory(prev => {
-        const remaining = prev[activeCategory].filter(p => p.id !== activePlayer.id);
-        const firstAvailable = remaining[0] || null;
-        setActivePlayer(firstAvailable);
-        setLeadingTeam(null);
-        setBidHistory([]);
-        setCountdown(null);
-        stopCountdown();
-        return { ...prev, [activeCategory]: remaining };
-      });
-    } catch (error) {
+      // Clear sessionStorage for this player
+      const historyKey = getHistoryKey(tournamentId!, activePlayer.id);
+      sessionStorage.removeItem(historyKey);
+
+      // Refresh data from API to get updated player list and next active player
+      if (tournamentId) {
+        getAuctionRoom(tournamentId).then(res => {
+          const data = res.data;
+          const roles = Object.keys(data.roles);
+          const mapped: Record<string, Player[]> = {};
+          
+          roles.forEach(role => {
+            mapped[role] = (data.roles[role].players as Player[]) || [];
+          });
+
+          setPlayersByCategory(mapped);
+
+          const firstValidCat = findFirstAvailableCategory(roles, mapped);
+          setActiveCategory(firstValidCat);
+
+          // Find next available player
+          let nextPlayer: Player | null = null;
+          if (data.activePlayer && data.activePlayer.status !== "sold") {
+            nextPlayer = data.activePlayer as Player;
+          } else {
+            nextPlayer = mapped[firstValidCat]?.find(p => p.status !== "sold") ?? null;
+          }
+
+          if (nextPlayer) {
+            setActivePlayer(nextPlayer);
+            setCurrentBid(nextPlayer.basePrice);
+            
+            // Restore leading team and bid history for new player
+            const nextHistoryKey = getHistoryKey(tournamentId, nextPlayer.id);
+            const savedHistory = sessionStorage.getItem(nextHistoryKey);
+            if (savedHistory) {
+              try {
+                const parsedHistory: BidHistoryItem[] = JSON.parse(savedHistory);
+                if (parsedHistory.length > 0) {
+                  setBidHistory(parsedHistory);
+                  const latestBid = parsedHistory[0];
+                  const leadingTeamFromHistory = teams.find(t => t.shortCode === latestBid.teamCode);
+                  if (leadingTeamFromHistory) {
+                    setLeadingTeam(leadingTeamFromHistory);
+                  }
+                } else {
+                  setBidHistory([]);
+                  setLeadingTeam(null);
+                }
+              } catch (e) {
+                console.error("Failed to parse saved history", e);
+                setBidHistory([]);
+                setLeadingTeam(null);
+              }
+            } else {
+              setBidHistory([]);
+              setLeadingTeam(null);
+            }
+          } else {
+            setActivePlayer(null);
+            setCurrentBid(0);
+            setLeadingTeam(null);
+            setBidHistory([]);
+          }
+
+          setCountdown(null);
+          stopCountdown();
+        });
+      }
+    } catch (error: any) {
       console.error("Hammer down failed:", error);
+      toast.error(error?.response?.data?.message || "Failed to hammer down. Please try again.");
     }
   };
 
@@ -282,13 +415,41 @@ export default function AuctionRoomPage() {
 
             {confirmationStep === 1 ? (
               <>
-                <span className="text-amber-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic">Step 01: Identification</span>
-                <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">Confirm <span className="text-amber-500">Sale</span>?</h2>
-                <p className="text-white/50 text-sm mb-10 leading-relaxed italic">Sell <span className="text-white font-bold">{activePlayer?.fullName}</span> to <span className="text-amber-500 font-bold">{leadingTeam?.name}</span> for <span className="text-white font-bold">{formatRupees(currentBid)}</span>?</p>
-                <div className="flex gap-4">
-                  <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Back</button>
-                  <button onClick={() => setConfirmationStep(2)} className="flex-[2] py-4 rounded-xl bg-amber-600 font-black uppercase text-xs hover:bg-amber-500 transition-all shadow-lg">Proceed</button>
-                </div>
+                {showNoTeamWarning ? (
+                  <>
+                    <span className="text-red-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic animate-pulse">⚠️ Warning</span>
+                    <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">No Team <span className="text-red-500">Selected</span></h2>
+                    <p className="text-white/50 text-sm mb-4 leading-relaxed italic">
+                      You haven't selected a team for <span className="text-white font-bold">{activePlayer?.fullName}</span>.
+                    </p>
+                    <p className="text-amber-500/80 text-sm mb-6 leading-relaxed italic font-bold">
+                      Player will be marked as <span className="text-white">UNSOLD</span> if no bids exist.
+                    </p>
+                    <p className="text-white/30 text-xs mb-10 leading-relaxed">
+                      If you want to sell at base price (<span className="text-amber-500 font-bold">{formatRupees(activePlayer?.basePrice || 0)}</span>), please select a team first.
+                    </p>
+                    <div className="flex gap-4">
+                      <button onClick={() => {
+                        setIsModalOpen(false);
+                        setShowNoTeamWarning(false);
+                      }} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Select Team</button>
+                      <button onClick={() => {
+                        setShowNoTeamWarning(false);
+                        setConfirmationStep(2);
+                      }} className="flex-[2] py-4 rounded-xl bg-red-600/80 font-black uppercase text-xs hover:bg-red-600 transition-all shadow-lg">Proceed Anyway</button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-amber-500 font-black uppercase tracking-[0.4em] text-[10px] mb-6 block italic">Step 01: Identification</span>
+                    <h2 className="text-4xl font-black italic tracking-tighter uppercase leading-none mb-4 text-white">Confirm <span className="text-amber-500">Sale</span>?</h2>
+                    <p className="text-white/50 text-sm mb-10 leading-relaxed italic">Sell <span className="text-white font-bold">{activePlayer?.fullName}</span> to <span className="text-amber-500 font-bold">{leadingTeam?.name}</span> for <span className="text-white font-bold">{formatRupees(currentBid)}</span>?</p>
+                    <div className="flex gap-4">
+                      <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-xl bg-white/5 border border-white/10 font-black uppercase text-xs hover:bg-white/10 transition-colors">Back</button>
+                      <button onClick={() => setConfirmationStep(2)} className="flex-[2] py-4 rounded-xl bg-amber-600 font-black uppercase text-xs hover:bg-amber-500 transition-all shadow-lg">Proceed</button>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -334,10 +495,76 @@ export default function AuctionRoomPage() {
               {(playersByCategory[activeCategory] ?? []).map(p => (
                 <button 
                   key={p.id} 
-                  onClick={() => {
+                  onClick={async () => {
                     // Only allow selecting non-sold players as active
                     if (p.status !== "sold") {
                       setActivePlayer(p);
+                      setCurrentBid(p.basePrice);
+                      
+                      // Restore leading team and bid history for selected player
+                      if (tournamentId) {
+                        const historyKey = getHistoryKey(tournamentId, p.id);
+                        const savedHistory = sessionStorage.getItem(historyKey);
+                        if (savedHistory) {
+                          try {
+                            const parsedHistory: BidHistoryItem[] = JSON.parse(savedHistory);
+                            if (parsedHistory.length > 0) {
+                              setBidHistory(parsedHistory);
+                              const latestBid = parsedHistory[0];
+                              const leadingTeamFromHistory = teams.find(t => t.shortCode === latestBid.teamCode);
+                              if (leadingTeamFromHistory) {
+                                setLeadingTeam(leadingTeamFromHistory);
+                              } else {
+                                setLeadingTeam(null);
+                              }
+                            } else {
+                              setBidHistory([]);
+                              setLeadingTeam(null);
+                            }
+                          } catch (e) {
+                            console.error("Failed to parse saved history", e);
+                            setBidHistory([]);
+                            setLeadingTeam(null);
+                          }
+                        } else {
+                          // Fetch fresh data from API for this player
+                          if (p.tournamentPlayerId) {
+                            try {
+                              const res = await getAuctionRoom(tournamentId, p.tournamentPlayerId);
+                              if (res.data.biddingHistory && res.data.biddingHistory.length > 0) {
+                                const apiHistory: BidHistoryItem[] = res.data.biddingHistory.map((bh: any) => ({
+                                  teamCode: bh.teamId?.shortCode || "N/A",
+                                  amount: bh.bidAmount,
+                                  timestamp: new Date(bh.createdAt).getTime()
+                                }));
+                                setBidHistory(apiHistory);
+                                const latestBid = apiHistory[0];
+                                const leadingTeamFromHistory = teams.find(t => t.shortCode === latestBid.teamCode);
+                                if (leadingTeamFromHistory) {
+                                  setLeadingTeam(leadingTeamFromHistory);
+                                } else {
+                                  setLeadingTeam(null);
+                                }
+                                // Save to sessionStorage
+                                sessionStorage.setItem(historyKey, JSON.stringify(apiHistory));
+                              } else {
+                                setBidHistory([]);
+                                setLeadingTeam(null);
+                              }
+                            } catch (error) {
+                              console.error("Failed to fetch bid history", error);
+                              setBidHistory([]);
+                              setLeadingTeam(null);
+                            }
+                          } else {
+                            setBidHistory([]);
+                            setLeadingTeam(null);
+                          }
+                        }
+                      }
+                      
+                      setCountdown(null);
+                      stopCountdown();
                     }
                   }} 
                   className={`w-full p-2.5 rounded-2xl text-left border transition-all ${p.status === "sold" ? "cursor-not-allowed opacity-30" : "cursor-pointer"} ${activePlayer?.id === p.id ? "bg-amber-600/20 border-amber-500/50 shadow-lg" : "bg-white/5 border-transparent opacity-40 hover:opacity-100"}`}
@@ -518,8 +745,7 @@ export default function AuctionRoomPage() {
             <button onClick={() => setActivePlayer(null)} className="flex-1 bg-white/[0.03] border border-white/10 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] transition-all text-white/30 hover:text-red-500 cursor-pointer active:scale-95">Skip</button>
             <button
               onClick={handleHammerDownClick}
-              disabled={!leadingTeam}
-              className={`flex-[3.5] bg-gradient-to-r from-amber-600 to-amber-400 py-4 rounded-2xl font-black text-xl uppercase tracking-[0.4em] shadow-2xl shadow-amber-900/40 disabled:opacity-10 transition-all hover:brightness-110 active:scale-95 text-white cursor-pointer relative overflow-hidden`}
+              className={`flex-[3.5] bg-gradient-to-r from-amber-600 to-amber-400 py-4 rounded-2xl font-black text-xl uppercase tracking-[0.4em] shadow-2xl shadow-amber-900/40 transition-all hover:brightness-110 active:scale-95 text-white cursor-pointer relative overflow-hidden`}
             >
               🔨 Hammer Down {countdown !== null && <span className="ml-4 opacity-50 italic">({countdown}s)</span>}
             </button>

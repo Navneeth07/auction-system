@@ -200,8 +200,22 @@ export async function GET(req) {
     });
 
     if (!tournament) {
+      // Check if tournament exists but belongs to different user
+      const tournamentExists = await Tournament.findOne({ _id: tournamentId });
+      console.log("Tournament lookup:", {
+        tournamentId,
+        userId,
+        tournamentExists: !!tournamentExists,
+        belongsToUser: tournamentExists?.createdBy?.toString() === userId?.toString()
+      });
+      
       return NextResponse.json(
-        { message: "Tournament not found" },
+        { 
+          message: "Tournament not found",
+          details: tournamentExists 
+            ? "Tournament exists but doesn't belong to this user" 
+            : "Tournament does not exist"
+        },
         { status: 404 },
       );
     }
@@ -225,6 +239,12 @@ export async function GET(req) {
 
     tournamentPlayers.forEach((tp) => {
       const player = tp.playerId;
+
+      // Skip if playerId is null (orphaned reference)
+      if (!player) {
+        console.warn(`Skipping TournamentPlayer ${tp._id} - playerId is null`);
+        return;
+      }
 
       const playerData = {
         id: player._id,

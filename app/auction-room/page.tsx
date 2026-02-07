@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTournamentInit } from "../hooks/useTournamentInit";
 import { getAuctionRoom, postAuctionBid, hammerDownPlayer } from "../lib/api/api";
-import { AuctionTeam } from "../lib/api/types"; // Ensure these are imported
+import { AuctionTeam } from "../lib/api/types";
+import { useRouter } from "next/navigation"; // 1. Added Import
 
-/* ================= TYPES ================= */
 
 type Player = {
   id: string;
@@ -55,6 +55,7 @@ const getHistoryKey = (tournamentId: string, playerId: string) =>
 export default function AuctionRoomPage() {
   const { tournament } = useTournamentInit(); // This ensures tournament is loaded
   const tournamentId = tournament?._id;
+  const router = useRouter();
 
   const [categories, setCategories] = useState<string[]>([]);
   const [playersByCategory, setPlayersByCategory] = useState<Record<string, Player[]>>({});
@@ -275,7 +276,9 @@ export default function AuctionRoomPage() {
           </div>
           <h1 className="text-2xl font-black italic tracking-tighter uppercase leading-none text-white">Cric<span className="text-amber-500">Auction</span> <span className="text-white/20 ml-1 italic text-lg">2026</span></h1>
         </div>
-        <button className="bg-white/5 hover:bg-red-600 border border-white/10 px-6 py-2 rounded-xl font-black transition-all text-xs uppercase text-red-500 hover:text-white cursor-pointer active:scale-95">End Session</button>
+        <button
+          onClick={() => router.push("/dashboard")}
+          className="bg-white/5 hover:bg-red-600 border border-white/10 px-6 py-2 rounded-xl font-black transition-all text-xs uppercase text-red-500 hover:text-white cursor-pointer active:scale-95">End Session</button>
       </header>
 
       <div className="grid grid-cols-12 gap-4 flex-grow min-h-0 relative z-10">

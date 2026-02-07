@@ -13,6 +13,7 @@ import {
   PlayerResponse,
   PaginatedPlayersResponse,
   AuctionRoomResponse,
+  TournamentDashboardResponse,
 } from "./types";
 
 export const registerUser = (data: RegisterPayload) =>
@@ -90,3 +91,6 @@ export const hammerDownPlayer = (payload: { tournamentPlayerId: string }) => {
 
 export const deleteTeam = (teamId: string) => 
   api.delete(`/teams/${teamId}`);
+
+export const getTournamentDashboard = (tournamentId: string) =>
+  api.get<any>(`/tournament-dashboard?tournamentId=${encodeURIComponent(tournamentId)}`);

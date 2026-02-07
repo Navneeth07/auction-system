@@ -10,101 +10,156 @@ import mongoose from "mongoose";
 
 
 export async function POST(req) {
-  try {
-    await connectDB();
+  const maxRetries = 3;
+  let retryCount = 0;
 
+  while (retryCount < maxRetries) {
     const session = await mongoose.startSession();
-    session.startTransaction();
+    
+    try {
+      await connectDB();
+      session.startTransaction();
 
-    const auth = verifyAuth(req);
-    if (auth.error) {
-      return NextResponse.json({ message: auth.error }, { status: 401 });
-    }
+      const auth = verifyAuth(req);
+      if (auth.error) {
+        await session.abortTransaction();
+        session.endSession();
+        return NextResponse.json({ message: auth.error }, { status: 401 });
+      }
 
-    const { userId } = auth.user;
+      const { userId } = auth.user;
 
-    // 🔥 Now we only need tournamentPlayerId and teamId
-    const { tournamentPlayerId, teamId } = await req.json();
+      // 🔥 Now we only need tournamentPlayerId and teamId
+      const { tournamentPlayerId, teamId } = await req.json();
 
-    const player = await TournamentPlayer.findOne({
-      _id: tournamentPlayerId,
-      createdBy: userId,
-    }).session(session);
+      // Find player with session for transaction
+      const player = await TournamentPlayer.findOne({
+        _id: tournamentPlayerId,
+        createdBy: userId,
+        status: { $ne: "sold" }, // Ensure player is not sold
+      }).session(session);
 
-    if (!player) {
-      throw new Error("Player not found");
-    }
+      if (!player) {
+        await session.abortTransaction();
+        session.endSession();
+        return NextResponse.json(
+          { message: "Player not found or already sold" },
+          { status: 404 }
+        );
+      }
 
-    if (player.status === "sold") {
-      throw new Error("This player is already sold. Bidding is not allowed.");
-    }
+      const team = await Team.findOne({
+        _id: teamId,
+        createdBy: userId,
+      }).session(session);
 
-    const team = await Team.findOne({
-      _id: teamId,
-      createdBy: userId,
-    }).session(session);
+      if (!team) {
+        await session.abortTransaction();
+        session.endSession();
+        return NextResponse.json(
+          { message: "Team not found" },
+          { status: 404 }
+        );
+      }
 
-    if (!team) {
-      throw new Error("Team not found");
-    }
+      // 🔥 FIXED BID INCREMENT LOGIC
+      const increment = player.biddingPrice;
 
-    // 🔥 FIXED BID INCREMENT LOGIC
-    const increment = player.biddingPrice;
+      if (team.remainingPurse < increment) {
+        await session.abortTransaction();
+        session.endSession();
+        return NextResponse.json(
+          { message: "Team does not have enough purse for this bid" },
+          { status: 400 }
+        );
+      }
 
-    if (team.remainingPurse < increment) {
-      throw new Error("Team does not have enough purse for this bid");
-    }
+      // 🔥 New price after bid
+      const newPrice = player.basePrice + increment;
 
-    // 🔥 New price after bid
-    const newPrice = player.basePrice + increment;
+      // Update player's current price using findOneAndUpdate for atomic operation
+      const updatedPlayer = await TournamentPlayer.findOneAndUpdate(
+        { _id: tournamentPlayerId },
+        { $set: { basePrice: newPrice } },
+        { 
+          session,
+          new: true // Return updated document
+        }
+      );
 
-    // Update player's current price
-    await TournamentPlayer.updateOne(
-      { _id: tournamentPlayerId },
-      { $set: { basePrice: newPrice } },
-      { session }
-    );
+      if (!updatedPlayer) {
+        throw new Error("Failed to update player price");
+      }
 
-    // Deduct from team purse
-    await Team.updateOne(
-      { _id: teamId },
-      { $inc: { remainingPurse: -increment } },
-      { session }
-    );
+      // Deduct from team purse
+      const updatedTeam = await Team.findOneAndUpdate(
+        { _id: teamId },
+        { $inc: { remainingPurse: -increment } },
+        { 
+          session,
+          new: true
+        }
+      );
 
-    // Save bid history
-    const history = await BidHistory.create(
-      [
-        {
-          tournamentId: player.tournamentId,
+      if (!updatedTeam) {
+        throw new Error("Failed to update team purse");
+      }
+
+      // Save bid history
+      const history = await BidHistory.create(
+        [
+          {
+            tournamentId: player.tournamentId,
+            tournamentPlayerId,
+            teamId,
+            bidAmount: newPrice,
+            createdBy: userId,
+          },
+        ],
+        { session }
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+
+      // 🔥 SEND USEFUL RESPONSE DATA
+      return NextResponse.json({
+        message: "Bid placed successfully",
+        data: {
           tournamentPlayerId,
           teamId,
-          bidAmount: newPrice,
-          createdBy: userId,
+          previousPrice: player.basePrice,
+          increment,
+          currentPrice: newPrice,
+          remainingPurse: updatedTeam.remainingPurse,
+          bidHistoryId: history[0]._id,
         },
-      ],
-      { session }
-    );
+      });
+    } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
 
-    await session.commitTransaction();
+      // Check if it's a write conflict error
+      const isWriteConflict = error.message?.includes("Write conflict") || 
+                              error.message?.includes("writeConflict") ||
+                              error.code === 112;
 
-    // 🔥 SEND USEFUL RESPONSE DATA
-    return NextResponse.json({
-      message: "Bid placed successfully",
+      if (isWriteConflict && retryCount < maxRetries - 1) {
+        retryCount++;
+        // Exponential backoff: wait 50ms, 100ms, 200ms
+        await new Promise(resolve => setTimeout(resolve, 50 * Math.pow(2, retryCount - 1)));
+        continue; // Retry the transaction
+      }
 
-      data: {
-        tournamentPlayerId,
-        teamId,
-        previousPrice: player.basePrice,
-        increment,
-        currentPrice: newPrice,
-        remainingPurse: team.remainingPurse - increment,
-        bidHistoryId: history[0]._id,
-      },
-    });
-  } catch (error) {
-    console.log("Error>>", error);
-    return NextResponse.json({ message: error.message }, { status: 500 });
+      console.log("Error>>", error);
+      return NextResponse.json(
+        { 
+          message: error.message || "Failed to place bid. Please try again.",
+          retryable: isWriteConflict && retryCount < maxRetries
+        },
+        { status: 500 }
+      );
+    }
   }
 }
 

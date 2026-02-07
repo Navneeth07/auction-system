@@ -88,6 +88,75 @@ export async function POST(req) {
   }
 }
 
+export async function PUT(req) {
+  try {
+    await connectDB();
+
+    // VERIFY TOKEN
+    const auth = verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json(
+        { message: auth.error },
+        { status: 401 }
+      );
+    }
+
+    const { userId } = auth.user;
+    const body = await req.json();
+    const { tournamentPlayerId, biddingPrice } = body;
+
+    if (!tournamentPlayerId || biddingPrice === undefined) {
+      return NextResponse.json(
+        { message: "tournamentPlayerId and biddingPrice are required" },
+        { status: 400 }
+      );
+    }
+
+    if (biddingPrice <= 0) {
+      return NextResponse.json(
+        { message: "Bidding price must be greater than 0" },
+        { status: 400 }
+      );
+    }
+
+    const tournamentPlayer = await TournamentPlayer.findOne({
+      _id: tournamentPlayerId,
+      createdBy: userId,
+    });
+
+    if (!tournamentPlayer) {
+      return NextResponse.json(
+        { message: "Tournament player not found or unauthorized" },
+        { status: 404 }
+      );
+    }
+
+    if (tournamentPlayer.status === "sold") {
+      return NextResponse.json(
+        { message: "Cannot update bidding price for a sold player" },
+        { status: 400 }
+      );
+    }
+
+    tournamentPlayer.biddingPrice = biddingPrice;
+    await tournamentPlayer.save();
+
+    return NextResponse.json(
+      {
+        message: "Bidding price updated successfully",
+        data: tournamentPlayer,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.log("TournamentPlayer PUT error:", error);
+    return NextResponse.json(
+      { message: error.message },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(req) {
   try {
     await connectDB();

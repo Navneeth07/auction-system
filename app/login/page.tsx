@@ -6,6 +6,7 @@ import { useState } from "react";
 import Loading from "../components/Loading";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/authStore";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function SignUpPage() {
     email: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuthStore();
   const [formErrors, setFormErrors] = useState({
     email: "",
@@ -134,16 +136,26 @@ export default function SignUpPage() {
               <label className="text-[9px] font-black text-white/30 uppercase tracking-widest block mb-3 ml-2 italic">
                 Secure Password
               </label>
-              <input
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                className={`w-full bg-white/[0.03] px-6 py-4 rounded-2xl border transition-all outline-none text-sm font-bold text-white focus:bg-white/[0.06]
-                  ${formErrors.password ? "border-red-500/50" : "border-white/5 focus:border-amber-500/50"}
-                `}
-                value={form.password}
-                onChange={handleChange}
-              />
+              <div className="relative">
+                <input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  className={`w-full bg-white/[0.03] px-6 py-4 pr-12 rounded-2xl border transition-all outline-none text-sm font-bold text-white focus:bg-white/[0.06]
+                    ${formErrors.password ? "border-red-500/50" : "border-white/5 focus:border-amber-500/50"}
+                  `}
+                  value={form.password}
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
               {formErrors.password && (
                 <span className="mt-2 inline-block text-[10px] font-black text-red-500 uppercase tracking-tight ml-2 italic">
                   {formErrors.password}

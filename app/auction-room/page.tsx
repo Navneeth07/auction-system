@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTournamentInit } from "../hooks/useTournamentInit";
-import { getAuctionRoom, postAuctionBid, hammerDownPlayer } from "../lib/api/api";
-import { AuctionTeam } from "../lib/api/types";
 import { useRouter } from "next/navigation"; // 1. Added Import
+import { getAuctionRoom, postAuctionBid, hammerDownPlayer, updateBiddingPrice } from "../lib/api/api";
+import { AuctionTeam } from "../lib/api/types"; // Ensure these are imported
+import { useApi } from "../hooks/useApi";
+import toast from "react-hot-toast";
 
 
 type Player = {
@@ -75,9 +77,11 @@ export default function AuctionRoomPage() {
   const [confirmationStep, setConfirmationStep] = useState(1);
 
   const [rightPanelTab, setRightPanelTab] = useState<"bids" | "sold">("bids");
+  const [isEditingBiddingPrice, setIsEditingBiddingPrice] = useState(false);
+  const [editingBiddingPrice, setEditingBiddingPrice] = useState(0);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const bidSoundRef = useRef<HTMLAudioElement | null>(null);
+  const { request: updateBiddingPriceRequest } = useApi(updateBiddingPrice);
 
   const getTeamDataFromId = (id: string, teamList: Team[]) => {
     const team = teamList.find(t => t.id === id);
@@ -143,8 +147,6 @@ export default function AuctionRoomPage() {
         setCurrentBid(firstAvailable?.basePrice ?? 0);
       }
     });
-
-    bidSoundRef.current = new Audio("/sounds/bid.mp3");
   }, [tournamentId]);
 
   const stopCountdown = () => {
@@ -156,33 +158,67 @@ export default function AuctionRoomPage() {
     if (!activePlayer || !activePlayer.tournamentPlayerId) return;
 
     const inc = activePlayer.biddingPrice;
-    const next = currentBid + inc;
+    // Always use activePlayer.basePrice which is the source of truth from database
+    const next = activePlayer.basePrice + inc;
 
-    if (team.remainingPurse < next) return;
+    // if (team.remainingPurse < next) {
+    //   toast.error("Team does not have enough purse for this bid");
+    //   return;
+    // }
 
-    setTeams(prevTeams => prevTeams.map(t =>
-      t.id === team.id ? { ...t, remainingPurse: t.remainingPurse - inc } : t
-    ));
+    try {
+      // Call API to place bid and get the actual updated price from database
+      const response = await postAuctionBid({
+        tournamentPlayerId: activePlayer.tournamentPlayerId,
+        teamId: team.id,
+        bidAmount: inc
+      });
 
-    await postAuctionBid({
-      tournamentPlayerId: activePlayer.tournamentPlayerId,
-      teamId: team.id,
-      bidAmount: inc
-    });
+      const responseData = response.data?.data || response.data;
+      const actualNewPrice = responseData?.currentPrice || next;
+      const actualRemainingPurse = responseData?.remainingPurse || (team.remainingPurse - inc);
 
-    setCurrentBid(next);
-    setLeadingTeam(team);
+      // Update teams with actual remaining purse from server
+      setTeams(prevTeams => prevTeams.map(t =>
+        t.id === team.id ? { ...t, remainingPurse: actualRemainingPurse } : t
+      ));
 
-    // FIX: Moved timestamp generation inside functional state update to prevent "impure function" error
-    setBidHistory(prev => {
-      const entry = { teamCode: team.shortCode, amount: next, timestamp: Date.now() };
-      const updated = [entry, ...prev];
-      sessionStorage.setItem(getHistoryKey(tournamentId!, activePlayer.id), JSON.stringify(updated));
-      return updated;
-    });
+      // Update active player with new basePrice
+      setActivePlayer(prev => prev ? {
+        ...prev,
+        basePrice: actualNewPrice
+      } : null);
 
-    bidSoundRef.current?.play();
-    startCountdown();
+      // Update current bid with actual price from server
+      setCurrentBid(actualNewPrice);
+      setLeadingTeam(team);
+
+      // Update bid history with actual price
+      setBidHistory(prev => {
+        const entry = { teamCode: team.shortCode, amount: actualNewPrice, timestamp: Date.now() };
+        const updated = [entry, ...prev];
+        sessionStorage.setItem(getHistoryKey(tournamentId!, activePlayer.id), JSON.stringify(updated));
+        return updated;
+      });
+
+      // Update playersByCategory to reflect new basePrice
+      setPlayersByCategory(prev => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach(role => {
+          updated[role] = updated[role].map(p =>
+            p.id === activePlayer.id
+              ? { ...p, basePrice: actualNewPrice }
+              : p
+          );
+        });
+        return updated;
+      });
+
+      startCountdown();
+    } catch (error: any) {
+      console.error("Bid error:", error);
+      toast.error(error?.response?.data?.message || "Failed to place bid. Please try again.");
+    }
   };
 
   const startCountdown = () => {
@@ -318,7 +354,110 @@ export default function AuctionRoomPage() {
                 {activePlayer ? activePlayer.fullName : "SELECT PLAYER"}
               </h1>
               <p className="text-xl text-white/30 font-medium uppercase tracking-[0.4em] italic truncate">{activePlayer?.role ?? "---"}</p>
-              <p className="mt-6 text-[11px] font-bold text-white/20 uppercase tracking-widest italic leading-none uppercase">Base Valuation: <span className="text-white ml-2 not-italic text-lg font-black">{activePlayer ? formatRupees(activePlayer.basePrice) : "-"}</span></p>
+              <div className="mt-6 space-y-2">
+                <p className="text-[11px] font-bold text-white/20 uppercase tracking-widest italic leading-none uppercase">Base Valuation: <span className="text-white ml-2 not-italic text-lg font-black">{activePlayer ? formatRupees(activePlayer.basePrice) : "-"}</span></p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] font-bold text-white/20 uppercase tracking-widest italic leading-none uppercase">Bid Increment: </p>
+                  {isEditingBiddingPrice && activePlayer ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={editingBiddingPrice}
+                        onChange={(e) => setEditingBiddingPrice(Number(e.target.value))}
+                        className="w-24 px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm font-bold focus:outline-none focus:border-amber-500"
+                        min="1"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          console.log("Save button clicked", { 
+                            tournamentPlayerId: activePlayer?.tournamentPlayerId, 
+                            biddingPrice: editingBiddingPrice 
+                          });
+                          
+                          if (!activePlayer?.tournamentPlayerId) {
+                            toast.error("Player ID missing");
+                            return;
+                          }
+                          if (editingBiddingPrice <= 0) {
+                            toast.error("Bidding price must be greater than 0");
+                            return;
+                          }
+                          try {
+                            console.log("Calling API...");
+                            const response = await updateBiddingPriceRequest({
+                              tournamentPlayerId: activePlayer.tournamentPlayerId,
+                              biddingPrice: editingBiddingPrice,
+                            });
+                            console.log("API response:", response);
+                            
+                            // Update local state
+                            setActivePlayer({
+                              ...activePlayer,
+                              biddingPrice: editingBiddingPrice,
+                            });
+                            // Update in playersByCategory
+                            setPlayersByCategory(prev => {
+                              const updated = { ...prev };
+                              Object.keys(updated).forEach(role => {
+                                updated[role] = updated[role].map(p =>
+                                  p.id === activePlayer.id
+                                    ? { ...p, biddingPrice: editingBiddingPrice }
+                                    : p
+                                );
+                              });
+                              return updated;
+                            });
+                            setIsEditingBiddingPrice(false);
+                            toast.success("Bidding price updated");
+                          } catch (error: any) {
+                            console.error("Error updating bidding price:", error);
+                            toast.error(error?.response?.data?.message || error?.message || "Failed to update bidding price");
+                          }
+                        }}
+                        className="px-3 py-1 bg-amber-600 text-white text-xs font-bold rounded hover:bg-amber-500 transition-colors cursor-pointer"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsEditingBiddingPrice(false);
+                          setEditingBiddingPrice(activePlayer?.biddingPrice || 0);
+                        }}
+                        className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded hover:bg-white/20 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-white ml-2 not-italic text-lg font-black">{activePlayer ? formatRupees(activePlayer.biddingPrice) : "-"}</span>
+                      {activePlayer && activePlayer.status !== "sold" && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log("Edit button clicked", activePlayer.biddingPrice);
+                            setEditingBiddingPrice(activePlayer.biddingPrice);
+                            setIsEditingBiddingPrice(true);
+                          }}
+                          className="ml-2 px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                          title="Edit bidding price"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

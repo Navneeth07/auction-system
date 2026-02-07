@@ -89,6 +89,13 @@ export const hammerDownPlayer = (payload: { tournamentPlayerId: string }) => {
   return api.post("/hammer-down", payload);
 };
 
+export const updateBiddingPrice = (payload: {
+  tournamentPlayerId: string;
+  biddingPrice: number;
+}) => {
+  return api.put("/tournament-player", payload);
+};
+
 export const deleteTeam = (teamId: string) => 
   api.delete(`/teams/${teamId}`);
 

@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { RolePricing } from "../lib/api/types";
 
+type RolePricingWithOptionalId = Omit<RolePricing, "_id"> & { _id?: string };
+
 type RoleStore = {
-  roles: RolePricing[];
+  roles: RolePricingWithOptionalId[];
   setRoles: (roles: RolePricing[]) => void;
   addRole: () => void;
-  updateRole: (index: number, data: Partial<RolePricing>) => void;
+  updateRole: (index: number, data: Partial<RolePricingWithOptionalId>) => void;
   removeRole: (index: number) => void;
   clearRoles: () => void;
 };

@@ -12,6 +12,7 @@ type RoleStore = {
   clearRoles: () => void;
 };
 
+
 export const useRoleStore = create<RoleStore>((set) => ({
   roles: [{ role: "", basePrice: 0, biddingPrice: 0 }],
 

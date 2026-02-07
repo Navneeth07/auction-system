@@ -232,3 +232,61 @@ export async function GET(req) {
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req) {
+  try {
+    await connectDB();
+
+    const auth = verifyAuth(req);
+    if (auth.error) {
+      return NextResponse.json({ message: auth.error }, { status: 401 });
+    }
+
+    const { userId } = auth.user;
+
+    const { searchParams } = new URL(req.url);
+    const tournamentPlayerId = searchParams.get("tournamentPlayerId");
+
+    if (!tournamentPlayerId) {
+      return NextResponse.json(
+        { message: "tournamentPlayerId is required" },
+        { status: 400 },
+      );
+    }
+
+    // Find the TournamentPlayer mapping
+    const tournamentPlayer = await TournamentPlayer.findOne({
+      _id: tournamentPlayerId,
+      createdBy: userId,
+    });
+
+    if (!tournamentPlayer) {
+      return NextResponse.json(
+        { message: "Player not found or unauthorized" },
+        { status: 404 },
+      );
+    }
+
+    // Check if player is sold - prevent deletion if sold
+    if (tournamentPlayer.status === "sold") {
+      return NextResponse.json(
+        { message: "Cannot delete a sold player" },
+        { status: 400 },
+      );
+    }
+
+    // Delete the TournamentPlayer mapping
+    await TournamentPlayer.deleteOne({
+      _id: tournamentPlayerId,
+      createdBy: userId,
+    });
+
+    return NextResponse.json(
+      { message: "Player deleted successfully" },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.log("Player DELETE error:", error);
+    return NextResponse.json({ message: error.message }, { status: 500 });
+  }
+}

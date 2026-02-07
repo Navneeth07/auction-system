@@ -21,7 +21,7 @@ export default function RootLayout({
           brand="CricAuction"
           links={[
             { label: "Home", href: "/" },
-            { label: "Host Auction", href: "/host" },
+            { label: "Dashboard", href: "/dashboard" },
           ]}
           loginText="Login"
         />

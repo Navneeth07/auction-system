@@ -17,7 +17,7 @@ import {
   getPaginatedPlayers
 } from "../lib/api/api";
 import { RolePricing } from "../lib/api/types";
-import { useTournamentStore } from "../store/tournamentStore";
+import { useTournamentInit } from "../hooks/useTournamentInit";
 
 // Strictly defined interface to eliminate build errors
 interface Player {
@@ -33,7 +33,7 @@ interface Player {
 
 export default function PlayerPoolPage() {
   const router = useRouter();
-  const { tournament } = useTournamentStore();
+  const { tournament } = useTournamentInit(); // This ensures tournament is loaded
   const tournamentId = tournament?._id || "";
 
   const [players, setPlayers] = useState<Player[]>([]);

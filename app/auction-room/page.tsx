@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useTournamentStore } from "../store/tournamentStore";
+import { useTournamentInit } from "../hooks/useTournamentInit";
 import { getAuctionRoom, postAuctionBid, hammerDownPlayer } from "../lib/api/api";
 import { AuctionTeam } from "../lib/api/types"; // Ensure these are imported
 
@@ -52,7 +52,7 @@ const getHistoryKey = (tournamentId: string, playerId: string) =>
   `auction-history-${tournamentId}-${playerId}`;
 
 export default function AuctionRoomPage() {
-  const { tournament } = useTournamentStore();
+  const { tournament } = useTournamentInit(); // This ensures tournament is loaded
   const tournamentId = tournament?._id;
 
   const [categories, setCategories] = useState<string[]>([]);

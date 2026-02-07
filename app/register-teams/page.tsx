@@ -38,15 +38,11 @@ export default function RegisterTeamsPage() {
   const teamsFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (!tournament) {
-      toast.error("Tournament context missing. Redirecting...");
-      router.push("/setup-tournament");
-      return;
-    }
-
+    if (!tournament?._id) return;
+    
     if (teamsFetchedRef.current) return;
     teamsFetchedRef.current = true;
-
+    
     fetchTeamsRequest(tournament._id)
       .then((res) => {
         // Safe mapping to replace 'any'

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authStore";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
-import { LogOut, User as UserIcon, Trophy, Hammer } from "lucide-react";
+import { LogOut, User as UserIcon, Hammer } from "lucide-react";
 
 type Props = {
   brand: string;
@@ -14,7 +14,10 @@ type Props = {
 
 export default function Header({ brand, links, loginText }: Props) {
   const router = useRouter();
-  const { user, logoutAsync } = useAuthStore();
+  // Note: We still access 'user' to check auth status, 
+  // but we bypass the 'logoutAsync' API call.
+  const { user } = useAuthStore(); 
+  
   const [hasToken, setHasToken] = useState<boolean>(() =>
     typeof window !== "undefined"
       ? Boolean(localStorage.getItem("token"))
@@ -60,19 +63,31 @@ export default function Header({ brand, links, loginText }: Props) {
     router.push(href);
   };
 
-  const handleLogout = async () => {
-    try {
-      await logoutAsync();
-      setHasToken(false);
-      toast.success("Logged out successfully");
-      router.push("/");
-    } catch (err) {
-      console.warn("Logout failed", err);
-      toast.error("Failed to logout, try again");
-      localStorage.removeItem("token");
-      setHasToken(false);
-      router.push("/");
-    }
+  /**
+   * CLIENT-ONLY LOGOUT
+   * Clears local storage and state without hitting the backend API.
+   */
+  const handleLogout = () => {
+    // 1. Remove the token from local storage
+    localStorage.removeItem("token");
+    
+    // 2. Clear any other auth-related local data if applicable
+    localStorage.removeItem("user-storage"); // Common if using Zustand persist
+
+    // 3. Update local state to trigger UI re-render
+    setHasToken(false);
+
+    // 4. Force a page reload or state reset in your AuthStore 
+    // depending on how useAuthStore is configured.
+    // If your store uses persist, you might need: useAuthStore.persist.clearStorage();
+    
+    toast.success("Logged out successfully");
+
+    // 5. Redirect to home
+    router.push("/");
+    
+    // Optional: Refresh the page to ensure all stores are completely reset
+    window.location.reload();
   };
 
   return (

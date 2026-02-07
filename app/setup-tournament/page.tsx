@@ -7,6 +7,7 @@ import { createTournament, getTournaments, getTournamentById } from "../lib/api/
 import { useApi } from "../hooks/useApi";
 import { useTournamentStore } from "../store/tournamentStore";
 import { useRoleStore } from "../store/roleStore";
+import { RolePricing } from "../lib/api/types";
 import Loading from "../components/Loading";
 
 export default function SetupTournamentPage() {
@@ -86,7 +87,13 @@ export default function SetupTournamentPage() {
       router.push("/register-teams");
       return;
     }
-    const payload = { ...form, budget: Number(form.budget), minPlayers: Number(form.minPlayers), maxPlayers: Number(form.maxPlayers), roles };
+    const payload = { 
+      ...form, 
+      budget: Number(form.budget), 
+      minPlayers: Number(form.minPlayers), 
+      maxPlayers: Number(form.maxPlayers), 
+      roles: roles.map(({ _id, ...role }) => role) as RolePricing[]
+    };
     try {
       const res = await request(payload);
       setTournament(res.data);
@@ -142,9 +149,9 @@ export default function SetupTournamentPage() {
                 {roles.map((r, i) => (
                   <div key={i} className="flex gap-4 bg-white/[0.03] p-6 rounded-[2.5rem] border border-white/5 hover:border-amber-500/30 transition-all duration-500 group animate-in slide-in-from-bottom-2">
                     <div className="flex-grow grid grid-cols-3 gap-6">
-                      <Input label="Role" value={r.role} onChange={(e) => updateRole(i, { role: e.target.value })} noMargin />
-                      <Input label="Base Price" value={r.basePrice} onChange={(e) => updateRole(i, { basePrice: Number(e.target.value) })} noMargin />
-                      <Input label="Increment" value={r.biddingPrice} onChange={(e) => updateRole(i, { biddingPrice: Number(e.target.value) })} noMargin />
+                      <Input label="Role" value={r.role} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(i, { role: e.target.value })} noMargin />
+                      <Input label="Base Price" value={r.basePrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(i, { basePrice: Number(e.target.value) })} noMargin />
+                      <Input label="Increment" value={r.biddingPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateRole(i, { biddingPrice: Number(e.target.value) })} noMargin />
                     </div>
                     <button type="button" onClick={() => removeRole(i)} className="self-end mb-2 p-3.5 rounded-2xl bg-red-500/10 text-red-500 opacity-60 hover:opacity-100 transition-all cursor-pointer">
                       <TrashIcon />

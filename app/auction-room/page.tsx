@@ -93,13 +93,33 @@ export default function AuctionRoomPage() {
       const mapped: Record<string, Player[]> = {};
       const alreadySold: SoldPlayer[] = [];
 
+      const mappedTeams: Team[] = data.teams.map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        shortCode: t.shortCode,
+        remainingPurse: t.remainingPurse ?? t.totalPurse ?? 0
+      }));
+
       roles.forEach(role => {
-        mapped[role] = data.roles[role].players.filter((p: any) => p.status !== "sold");
+        mapped[role] = data.roles[role].players
+          .filter((p: any) => p.status !== "sold" && p.tournamentPlayerId)
+          .map((p: any) => ({
+            id: p.id,
+            fullName: p.fullName,
+            tournamentPlayerId: p.tournamentPlayerId,
+            image: p.image,
+            role: p.role,
+            basePrice: p.basePrice,
+            biddingPrice: p.biddingPrice,
+            status: p.status as "registered" | "sold",
+            soldTo: p.soldTo?.id || p.soldTo,
+            soldAmount: p.soldAmount
+          }));
         
         data.roles[role].players.forEach((p: any) => {
           if (p.status === "sold") {
-            const teamId = p.soldTo; 
-            const teamInfo = getTeamDataFromId(teamId, data.teams);
+            const teamId = p.soldTo?.id || p.soldTo; 
+            const teamInfo = getTeamDataFromId(teamId, mappedTeams);
             alreadySold.push({
               id: p.id,
               fullName: p.fullName,
@@ -114,15 +134,27 @@ export default function AuctionRoomPage() {
 
       setCategories(roles);
       setPlayersByCategory(mapped);
-      setTeams(data.teams);
+      setTeams(mappedTeams);
       setSoldPlayers(alreadySold);
 
       const firstValidCat = findFirstAvailableCategory(roles, mapped);
       setActiveCategory(firstValidCat);
 
-      if (data.activePlayer && data.activePlayer.status !== "sold") {
-        setActivePlayer(data.activePlayer);
-        setCurrentBid(data.activePlayer.basePrice);
+      if (data.activePlayer && data.activePlayer.status !== "sold" && data.activePlayer.tournamentPlayerId) {
+        const activePlayerData = data.activePlayer as any;
+        setActivePlayer({
+          id: activePlayerData.id,
+          fullName: activePlayerData.fullName,
+          tournamentPlayerId: activePlayerData.tournamentPlayerId,
+          image: activePlayerData.image,
+          role: activePlayerData.role,
+          basePrice: activePlayerData.basePrice,
+          biddingPrice: activePlayerData.biddingPrice,
+          status: activePlayerData.status as "registered" | "sold",
+          soldTo: activePlayerData.soldTo?.id || activePlayerData.soldTo,
+          soldAmount: activePlayerData.soldAmount
+        });
+        setCurrentBid(activePlayerData.basePrice);
       } else {
         const firstAvailable = mapped[firstValidCat]?.[0] ?? null;
         setActivePlayer(firstAvailable);

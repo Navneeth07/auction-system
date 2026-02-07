@@ -99,6 +99,10 @@ export const updateBiddingPrice = (payload: {
   return api.put("/tournament-player", payload);
 };
 
+export const revertBid = (bidHistoryId: string) => {
+  return api.delete(`/bid-history/${bidHistoryId}`);
+};
+
 export const deleteTeam = (teamId: string) => 
   api.delete(`/teams/${teamId}`);
 

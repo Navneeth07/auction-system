@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTournamentInit } from "../hooks/useTournamentInit";
 import { useRouter } from "next/navigation"; // 1. Added Import
-import { getAuctionRoom, postAuctionBid, hammerDownPlayer, updateBiddingPrice } from "../lib/api/api";
+import { getAuctionRoom, postAuctionBid, hammerDownPlayer, updateBiddingPrice, revertBid } from "../lib/api/api";
 import { AuctionTeam } from "../lib/api/types"; // Ensure these are imported
 import { useApi } from "../hooks/useApi";
 import toast from "react-hot-toast";
@@ -38,6 +38,8 @@ type BidHistoryItem = {
   teamCode: string;
   amount: number;
   timestamp: number;
+  bidHistoryId?: string;
+  teamId?: string;
 };
 
 type SoldPlayer = {
@@ -69,6 +71,7 @@ export default function AuctionRoomPage() {
 
   const [currentBid, setCurrentBid] = useState(0);
   const [leadingTeam, setLeadingTeam] = useState<Team | null>(null);
+  const [lastBiddingTeamId, setLastBiddingTeamId] = useState<string | null>(null);
 
   const [bidHistory, setBidHistory] = useState<BidHistoryItem[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -174,9 +177,11 @@ export default function AuctionRoomPage() {
         // Also check API bid history if available
         if (data.biddingHistory && data.biddingHistory.length > 0) {
           const apiHistory: BidHistoryItem[] = data.biddingHistory.map((bh: any) => ({
-            teamCode: bh.teamId?.shortCode || bh.teamId?.shortCode || "N/A",
+            teamCode: bh.teamId?.shortCode || "N/A",
             amount: bh.bidAmount,
-            timestamp: new Date(bh.createdAt).getTime()
+            timestamp: new Date(bh.createdAt).getTime(),
+            bidHistoryId: bh._id?.toString(),
+            teamId: bh.teamId?._id?.toString() || bh.teamId?.toString()
           }));
           if (apiHistory.length > 0) {
             setBidHistory(apiHistory);
@@ -184,6 +189,7 @@ export default function AuctionRoomPage() {
             const leadingTeamFromHistory = mappedTeams.find(t => t.shortCode === latestBid.teamCode);
             if (leadingTeamFromHistory) {
               setLeadingTeam(leadingTeamFromHistory);
+              setLastBiddingTeamId(latestBid.teamId || null);
             }
           }
         }
@@ -237,10 +243,18 @@ export default function AuctionRoomPage() {
       // Update current bid with actual price from server
       setCurrentBid(actualNewPrice);
       setLeadingTeam(team);
+      setLastBiddingTeamId(team.id); // Track last bidding team
 
-      // Update bid history with actual price
+      // Update bid history with actual price and bidHistoryId
+      const bidHistoryId = responseData?.bidHistoryId;
       setBidHistory(prev => {
-        const entry = { teamCode: team.shortCode, amount: actualNewPrice, timestamp: Date.now() };
+        const entry: BidHistoryItem = { 
+          teamCode: team.shortCode, 
+          amount: actualNewPrice, 
+          timestamp: Date.now(),
+          bidHistoryId: bidHistoryId,
+          teamId: team.id
+        };
         const updated = [entry, ...prev];
         sessionStorage.setItem(getHistoryKey(tournamentId!, activePlayer.id), JSON.stringify(updated));
         return updated;
@@ -263,6 +277,112 @@ export default function AuctionRoomPage() {
     } catch (error: any) {
       console.error("Bid error:", error);
       toast.error(error?.response?.data?.message || "Failed to place bid. Please try again.");
+    }
+  };
+
+  const handleRevertBid = async (bidItem: BidHistoryItem, index: number) => {
+    if (!bidItem.bidHistoryId) {
+      toast.error("Cannot revert: Bid ID missing");
+      return;
+    }
+
+    if (index !== 0) {
+      toast.error("You can only revert the latest bid");
+      return;
+    }
+
+    if (!activePlayer || !tournamentId) return;
+
+    try {
+      const revertResponse = await revertBid(bidItem.bidHistoryId);
+      
+      // Get the previous price from revert response
+      const previousPrice = revertResponse?.data?.data?.previousPrice;
+      const playerIdToUpdate = activePlayer.id;
+      
+      // Update activePlayer immediately with the reverted price
+      if (previousPrice !== undefined) {
+        setActivePlayer(prev => prev ? {
+          ...prev,
+          basePrice: previousPrice
+        } : null);
+        
+        setCurrentBid(previousPrice);
+        
+        // Update playersByCategory immediately
+        setPlayersByCategory(prev => {
+          const updated = { ...prev };
+          Object.keys(updated).forEach(role => {
+            updated[role] = updated[role].map(p =>
+              p.id === playerIdToUpdate
+                ? { ...p, basePrice: previousPrice }
+                : p
+            );
+          });
+          return updated;
+        });
+      }
+      
+      // Refresh data from API to get updated state (teams, etc.)
+      if (tournamentId) {
+        try {
+          const res = await getAuctionRoom(tournamentId);
+          const data = res.data;
+          const mappedTeams: Team[] = (data.teams || []).map((t: AuctionTeam) => ({
+            id: t.id,
+            name: t.name,
+            shortCode: t.shortCode,
+            remainingPurse: t.remainingPurse ?? 0
+          }));
+          setTeams(mappedTeams);
+
+          // Double-check player base price from API response if available
+          if (data.activePlayer && data.activePlayer.id === playerIdToUpdate) {
+            const updatedPlayer = data.activePlayer as Player;
+            setActivePlayer(prev => prev ? {
+              ...prev,
+              basePrice: updatedPlayer.basePrice
+            } : null);
+            setCurrentBid(updatedPlayer.basePrice);
+          }
+        } catch (error: any) {
+          console.error("Failed to refresh auction room data after revert:", error);
+          // Don't show error toast as the revert was successful, just log it
+        }
+      }
+
+      // Remove from bid history and update leading team
+      setBidHistory(prev => {
+        const updated = prev.filter((_, i) => i !== index);
+        sessionStorage.setItem(getHistoryKey(tournamentId, activePlayer.id), JSON.stringify(updated));
+        
+        // Update leading team based on updated history
+        if (updated.length > 0) {
+          const previousBid = updated[0];
+          // Use teams state to find the previous team
+          setTeams(currentTeams => {
+            const previousTeam = currentTeams.find((t: Team) => t.shortCode === previousBid.teamCode);
+            if (previousTeam) {
+              setLeadingTeam(previousTeam);
+              setLastBiddingTeamId(previousBid.teamId || null);
+            } else {
+              setLeadingTeam(null);
+              setLastBiddingTeamId(null);
+            }
+            return currentTeams;
+          });
+        } else {
+          setLeadingTeam(null);
+          setLastBiddingTeamId(null);
+        }
+        
+        return updated;
+      });
+
+      toast.success("Bid reverted successfully");
+    } catch (error: any) {
+      console.error("Revert bid error:", error);
+      toast.error(error?.response?.data?.message || "Failed to revert bid. Please try again.");
     }
   };
 
@@ -769,14 +889,28 @@ export default function AuctionRoomPage() {
           <div className="flex gap-2 relative z-50 overflow-hidden shrink-0">
             {teams.map(team => {
               const isActive = leadingTeam?.id === team.id;
+              const isLastBidder = lastBiddingTeamId === team.id;
+              const isDisabled = isLastBidder && !isActive;
               return (
                 <button
                   key={team.id}
-                  onClick={() => handleBid(team)}
-                  className={`flex-1 min-w-0 p-3 rounded-xl border transition-all active:scale-95 text-left group cursor-pointer 
-                    ${isActive
-                      ? "bg-white text-black border-white shadow-xl translate-y-[-2px]"
-                      : "bg-white/[0.03] border-white/5 hover:bg-white hover:text-black hover:border-white hover:translate-y-[-4px] hover:shadow-[0_10px_20px_rgba(255,255,255,0.15)]"
+                  onClick={() => {
+                    if (isDisabled) {
+                      toast.error("You cannot bid again. Another team must bid first.", {
+                        icon: "⚠️",
+                        duration: 3000
+                      });
+                      return;
+                    }
+                    handleBid(team);
+                  }}
+                  disabled={isDisabled}
+                  className={`flex-1 min-w-0 p-3 rounded-xl border transition-all active:scale-95 text-left group
+                    ${isDisabled
+                      ? "bg-white/[0.01] border-white/5 opacity-30 cursor-not-allowed"
+                      : isActive
+                      ? "bg-white text-black border-white shadow-xl translate-y-[-2px] cursor-pointer"
+                      : "bg-white/[0.03] border-white/5 hover:bg-white hover:text-black hover:border-white hover:translate-y-[-4px] hover:shadow-[0_10px_20px_rgba(255,255,255,0.15)] cursor-pointer"
                     }`}
                 >
                   <p className={`text-lg font-black italic tracking-tighter uppercase leading-none mb-2 transition-colors ${isActive ? "text-black" : "text-white group-hover:text-black"}`}>{team.shortCode}</p>
@@ -811,15 +945,30 @@ export default function AuctionRoomPage() {
 
             <div className="space-y-3 overflow-y-auto pr-1 custom-scrollbar flex-grow">
               {rightPanelTab === "bids" ? (
-                bidHistory.map((b, i) => (
-                  <div key={b.timestamp} className={`p-3 rounded-xl border flex justify-between items-center animate-in slide-in-from-right duration-500 ${i === 0 ? "bg-white/5 border-white/10 shadow-lg shadow-amber-900/10 ring-1 ring-amber-500/20" : "bg-transparent border-white/5 opacity-50"}`}>
-                    <div className="min-w-0">
-                      <p className="text-base font-black italic text-white uppercase leading-none mb-1 truncate">{b.teamCode}</p>
-                      <p className="text-[8px] font-bold text-white/20 uppercase tracking-tighter italic">Bid Recorded</p>
+                bidHistory.length > 0 ? (
+                  bidHistory.map((b, i) => (
+                    <div key={b.timestamp} className={`p-3 rounded-xl border flex justify-between items-center animate-in slide-in-from-right duration-500 ${i === 0 ? "bg-white/5 border-white/10 shadow-lg shadow-amber-900/10 ring-1 ring-amber-500/20" : "bg-transparent border-white/5 opacity-50"}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-black italic text-white uppercase leading-none mb-1 truncate">{b.teamCode}</p>
+                        <p className="text-[8px] font-bold text-white/20 uppercase tracking-tighter italic">Bid Recorded</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className={`text-base font-black italic tabular-nums ${i === 0 ? "text-amber-400" : "text-white"}`}>{formatRupees(b.amount)}</p>
+                        {i === 0 && b.bidHistoryId && (
+                          <button
+                            onClick={() => handleRevertBid(b, i)}
+                            className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded text-[8px] font-bold text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+                            title="Revert this bid"
+                          >
+                            ↶
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <p className={`text-base font-black italic tabular-nums ${i === 0 ? "text-amber-400" : "text-white"}`}>{formatRupees(b.amount)}</p>
-                  </div>
-                ))
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-white/30 text-sm italic">No bids yet</div>
+                )
               ) : (
                 soldPlayers.map((p) => (
                   <div key={p.id} className="p-4 rounded-2xl border border-white/5 bg-gradient-to-br from-emerald-500/10 to-transparent relative mb-2 animate-in slide-in-from-bottom-2 duration-500 hover:border-emerald-500/30 transition-all group overflow-hidden">

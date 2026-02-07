@@ -181,15 +181,21 @@ export async function GET(req) {
       .skip(skip)
       .limit(limit);
 
-    // Format response
-    const formattedPlayers = players.map((item) => ({
-      ...item.playerId._doc,
-      role: item.role,
-      basePrice: item.basePrice,
-      biddingPrice: item.biddingPrice,
-      status: item.status,
-      mappingId: item._id,
-    }));
+    // Format response - filter out items with null playerId (orphaned references)
+    const formattedPlayers = players
+      .filter((item) => item.playerId !== null && item.playerId !== undefined)
+      .map((item) => {
+        // Handle both _doc (older Mongoose) and direct object (newer Mongoose)
+        const playerData = item.playerId._doc || item.playerId;
+        return {
+          ...playerData,
+          role: item.role,
+          basePrice: item.basePrice,
+          biddingPrice: item.biddingPrice,
+          status: item.status,
+          mappingId: item._id,
+        };
+      });
 
     // 3️⃣ Dynamic Role Count Aggregation
     const roleAggregation = await TournamentPlayer.aggregate([

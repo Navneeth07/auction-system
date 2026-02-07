@@ -19,7 +19,7 @@ import {
 import { RolePricing } from "../lib/api/types";
 import { useTournamentStore } from "../store/tournamentStore";
 
-// Defined Interface to eliminate 'any'
+// Strictly defined interface to eliminate build errors
 interface Player {
   _id: string;
   fullName: string;
@@ -38,7 +38,7 @@ export default function PlayerPoolPage() {
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [roles, setRoles] = useState<RolePricing[]>([]);
-  const [roleCounts, setRoleCounts] = useState<{ [key: string]: number }>({});
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +56,7 @@ export default function PlayerPoolPage() {
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Replaced 'any' with Player[] to satisfy ESLint
   const calculateRoleCounts = (list: Player[]) => {
     return list.reduce((acc: Record<string, number>, p: Player) => {
       const role = p.role?.toLowerCase();
@@ -67,7 +68,18 @@ export default function PlayerPoolPage() {
   const fetchPaginatedPlayers = async () => {
     try {
       const res = await getPaginatedPlayers(tournamentId, page, limit);
-      const list: Player[] = res.data.data || [];
+      // Map raw API data to the Player interface to avoid missing property errors
+      const list: Player[] = (res.data.data || []).map((p: any) => ({
+        _id: p._id,
+        fullName: p.fullName || "Unknown",
+        phoneNumber: p.phoneNumber || "",
+        role: p.role || "",
+        basePrice: Number(p.basePrice) || 0,
+        biddingPrice: Number(p.biddingPrice) || 0,
+        tournamentId: p.tournamentId || tournamentId,
+        image: p.image
+      }));
+      
       setPlayers(list);
       setTotalPlayers(res.data.pagination?.total || 0);
       setRoleCounts(calculateRoleCounts(list));
@@ -208,6 +220,7 @@ export default function PlayerPoolPage() {
                         )}
                       </div>
                       <div>
+                        {/* Changed from player.name to player.fullName to match interface */}
                         <p className="text-lg font-black uppercase italic tracking-tight text-white group-hover:text-amber-400 transition-colors">{player.fullName}</p>
                         <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-1">
                           Role: <span className="text-white/60 ml-1 italic">{player.role}</span>

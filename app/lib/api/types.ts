@@ -1,3 +1,4 @@
+/* ---------------- AUTH TYPES ---------------- */
 export type RegisterPayload = {
   fullName: string;
   email: string;
@@ -24,6 +25,7 @@ export type LoginPayload = {
 
 export type LoginResponse = AuthResponse;
 
+/* ---------------- TOURNAMENT & ROLES ---------------- */
 export type RolePricing = {
   _id: string;
   role: string;
@@ -52,6 +54,7 @@ export type TournamentPayload = {
   roles: RolePricing[];
 };
 
+/* ---------------- TEAM TYPES ---------------- */
 export type Team = {
   id: string;
   _id?: string;
@@ -69,6 +72,7 @@ export type TeamResponse = {
   data: Team;
 };
 
+/* ---------------- PLAYER TYPES ---------------- */
 export type Player = {
   id: string;
   fullName: string;
@@ -111,6 +115,7 @@ export type PaginatedPlayersResponse = {
   };
 };
 
+/* ---------------- AUCTION ROOM TYPES ---------------- */
 export type BiddingHistoryItem = {
   teamCode: string;
   amount: number;
@@ -166,8 +171,27 @@ export type AuctionRoomResponse = {
   biddingHistory: BiddingHistoryItem[];
 };
 
-/* ================= DASHBOARD ================= */
-export type DashboardStats = {
+/* ---------------- DASHBOARD TYPES ---------------- */
+export type DashboardTeamPlayer = {
+  playerId: string;
+  playerName: string;
+  role: string;
+  soldAmount: number;
+};
+
+export type DashboardTeam = {
+  teamId: string;
+  teamName: string;
+  shortCode: string;
+  maxPlayersAllowed: number;
+  playersBought: number;
+  playerCountDisplay: string;
+  totalFundSpent: number;
+  remainingPurse: number;
+  players: DashboardTeamPlayer[];
+};
+
+export type TournamentDashboardResponse = {
   tournament: {
     id: string;
     name: string;
@@ -185,16 +209,5 @@ export type DashboardStats = {
       teamShortCode: string;
     };
   };
-  teams: (AuctionTeam & {
-    playersBought: number;
-    maxPlayersAllowed: number;
-    playerCountDisplay: string;
-    totalFundSpent: number;
-    players: {
-      playerId: string;
-      playerName: string;
-      role: string;
-      soldAmount: number;
-    }[];
-  })[];
+  teams: DashboardTeam[];
 };

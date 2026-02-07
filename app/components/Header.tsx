@@ -18,14 +18,14 @@ export default function Header({ brand, links, loginText }: Props) {
   // but we bypass the 'logoutAsync' API call.
   const { user } = useAuthStore(); 
   
-  const [hasToken, setHasToken] = useState<boolean>(() =>
-    typeof window !== "undefined"
-      ? Boolean(localStorage.getItem("token"))
-      : false,
-  );
+  // Always start with false to match server render, then update in useEffect
+  const [hasToken, setHasToken] = useState<boolean>(false);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Set hydrated flag and check token only after mount (client-side only)
+    setIsHydrated(true);
+    setHasToken(Boolean(localStorage.getItem("token")));
 
     const handler = (e: StorageEvent) => {
       if (e.key === "token") {
@@ -37,20 +37,9 @@ export default function Header({ brand, links, loginText }: Props) {
     return () => window.removeEventListener("storage", handler);
   }, []);
 
-  const protectedPaths = ["/setup-tournament", "/register-teams"];
+  const protectedPaths = ["/setup-tournament", "/register-teams", "/dashboard"];
 
   const handleNav = (href: string) => {
-    if (href === "/host") {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      if (user || token) {
-        router.push("/setup-tournament");
-      } else {
-        toast("Please register or login to host an auction.", { icon: "🔒" });
-        router.push(`/signup?next=${encodeURIComponent("/setup-tournament")}`);
-      }
-      return;
-    }
-
     if (protectedPaths.includes(href)) {
       const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       if (!user && !token) {
@@ -119,7 +108,8 @@ export default function Header({ brand, links, loginText }: Props) {
         </nav>
 
         <div className="flex items-center gap-4">
-          {user || hasToken ? (
+          {/* Only check auth state after hydration to prevent mismatch */}
+          {isHydrated && (user || hasToken) ? (
             <div className="flex items-center gap-3 bg-white/[0.03] border border-white/10 p-1.5 rounded-2xl">
               <button
                 onClick={() => router.push("/setup-tournament")}

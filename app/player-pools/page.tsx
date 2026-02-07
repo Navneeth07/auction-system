@@ -14,7 +14,8 @@ import {
 import {
   getRolesDropdown,
   createPlayer,
-  getPaginatedPlayers
+  getPaginatedPlayers,
+  deletePlayer
 } from "../lib/api/api";
 import { RolePricing } from "../lib/api/types";
 import { useTournamentInit } from "../hooks/useTournamentInit";
@@ -29,6 +30,7 @@ interface Player {
   biddingPrice: number;
   image?: string;
   tournamentId: string;
+  mappingId?: string; // TournamentPlayer ID for deletion
 }
 
 export default function PlayerPoolPage() {
@@ -42,6 +44,7 @@ export default function PlayerPoolPage() {
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingPlayerId, setDeletingPlayerId] = useState<string | null>(null);
   const rolesFetchedRef = useRef(false);
 
   const [page] = useState(1);
@@ -59,8 +62,17 @@ export default function PlayerPoolPage() {
   // Replaced 'any' with Player[] to satisfy ESLint
   const calculateRoleCounts = (list: Player[]) => {
     return list.reduce((acc: Record<string, number>, p: Player) => {
-      const role = p.role?.toLowerCase();
-      if (role) acc[role] = (acc[role] || 0) + 1;
+      // Normalize role: lowercase and handle spaces/variations
+      const role = p.role?.toLowerCase().trim();
+      if (role) {
+        // Map variations to standard keys
+        let normalizedRole = role;
+        if (role.includes("batsman")) normalizedRole = "batsman";
+        else if (role.includes("bowler")) normalizedRole = "bowler";
+        else if (role.includes("all") && role.includes("round")) normalizedRole = "all rounder";
+        
+        acc[normalizedRole] = (acc[normalizedRole] || 0) + 1;
+      }
       return acc;
     }, {} as Record<string, number>);
   };
@@ -198,6 +210,7 @@ export default function PlayerPoolPage() {
                   <p>Total: <span className="text-white ml-1">{totalPlayers}</span></p>
                   <p>Batsmen: <span className="text-amber-500 ml-1">{roleCounts.batsman || 0}</span></p>
                   <p>Bowlers: <span className="text-amber-500 ml-1">{roleCounts.bowler || 0}</span></p>
+                  <p>All Rounder: <span className="text-amber-500 ml-1">{roleCounts["all rounder"] || 0}</span></p>
                 </div>
               </div>
             </div>
@@ -227,8 +240,33 @@ export default function PlayerPoolPage() {
                         </p>
                       </div>
                     </div>
-                    <button className="p-3 rounded-2xl bg-red-500/10 text-red-500 opacity-20 group-hover:opacity-100 transition-all cursor-pointer">
-                      <Trash2 size={18} />
+                    <button 
+                      onClick={async () => {
+                        if (!player.mappingId) {
+                          alert("Cannot delete: Player mapping ID not found");
+                          return;
+                        }
+                        if (!confirm(`Are you sure you want to delete ${player.fullName}?`)) {
+                          return;
+                        }
+                        try {
+                          setDeletingPlayerId(player._id);
+                          await deletePlayer(player.mappingId);
+                          await fetchPaginatedPlayers();
+                        } catch (err: any) {
+                          alert(err?.response?.data?.message || "Failed to delete player");
+                        } finally {
+                          setDeletingPlayerId(null);
+                        }
+                      }}
+                      disabled={deletingPlayerId === player._id}
+                      className={`p-3 rounded-2xl bg-red-500/10 text-red-500 opacity-20 group-hover:opacity-100 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {deletingPlayerId === player._id ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
                     </button>
                   </div>
                 ))

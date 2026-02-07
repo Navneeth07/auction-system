@@ -113,8 +113,8 @@ export default function AuctionRoomPage() {
       }));
 
       roles.forEach(role => {
-        // FIX: Casting API players to local Player type
-        mapped[role] = (data.roles[role].players as Player[]).filter((p) => p.status !== "sold");
+        // Show ALL players including sold ones - don't filter them out
+        mapped[role] = (data.roles[role].players as Player[]) || [];
 
         (data.roles[role].players as Player[]).forEach((p) => {
           if (p.status === "sold") {
@@ -142,7 +142,8 @@ export default function AuctionRoomPage() {
         setActivePlayer(data.activePlayer as Player);
         setCurrentBid(data.activePlayer.basePrice);
       } else {
-        const firstAvailable = mapped[firstValidCat]?.[0] ?? null;
+        // Find first non-sold player from the mapped category
+        const firstAvailable = mapped[firstValidCat]?.find(p => p.status !== "sold") ?? null;
         setActivePlayer(firstAvailable);
         setCurrentBid(firstAvailable?.basePrice ?? 0);
       }
@@ -331,8 +332,22 @@ export default function AuctionRoomPage() {
             <p className="text-[10px] font-black text-white/30 uppercase mb-3 italic">Queue</p>
             <div className="space-y-2 overflow-y-auto pr-1 custom-scrollbar">
               {(playersByCategory[activeCategory] ?? []).map(p => (
-                <button key={p.id} onClick={() => setActivePlayer(p)} className={`w-full p-2.5 rounded-2xl text-left border transition-all cursor-pointer ${activePlayer?.id === p.id ? "bg-amber-600/20 border-amber-500/50 shadow-lg" : "bg-white/5 border-transparent opacity-40 hover:opacity-100"}`}>
-                  <p className="font-black text-[10px] uppercase italic truncate">{p.fullName}</p>
+                <button 
+                  key={p.id} 
+                  onClick={() => {
+                    // Only allow selecting non-sold players as active
+                    if (p.status !== "sold") {
+                      setActivePlayer(p);
+                    }
+                  }} 
+                  className={`w-full p-2.5 rounded-2xl text-left border transition-all ${p.status === "sold" ? "cursor-not-allowed opacity-30" : "cursor-pointer"} ${activePlayer?.id === p.id ? "bg-amber-600/20 border-amber-500/50 shadow-lg" : "bg-white/5 border-transparent opacity-40 hover:opacity-100"}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="font-black text-[10px] uppercase italic truncate">{p.fullName}</p>
+                    {p.status === "sold" && (
+                      <span className="text-[8px] font-black text-red-500 uppercase ml-2 shrink-0">SOLD</span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

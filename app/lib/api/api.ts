@@ -99,5 +99,8 @@ export const updateBiddingPrice = (payload: {
 export const deleteTeam = (teamId: string) => 
   api.delete(`/teams/${teamId}`);
 
+export const deletePlayer = (tournamentPlayerId: string) =>
+  api.delete(`/players?tournamentPlayerId=${encodeURIComponent(tournamentPlayerId)}`);
+
 export const getTournamentDashboard = (tournamentId: string) =>
   api.get<any>(`/tournament-dashboard?tournamentId=${encodeURIComponent(tournamentId)}`);

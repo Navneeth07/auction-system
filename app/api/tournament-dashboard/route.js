@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Tournament from "@/models/Tournament";
 import TournamentPlayer from "@/models/TournamentPlayer";
+import Player from "@/models/Player"; 
 import Team from "@/models/Team";
 import { verifyAuth } from "@/lib/auth";
+import mongoose from "mongoose";
 
 export async function GET(req) {
   try {
@@ -137,6 +139,7 @@ export async function GET(req) {
       teams: teamDashboard,
     });
   } catch (error) {
+    console.log("error>>", error)
     return NextResponse.json({ message: error.message }, { status: 500 });
   }
 }
